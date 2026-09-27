@@ -4,8 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>青石古镇 · 景区口碑与体验 MVP 原型</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  /* 内嵌字体：只含本项目用到的字，由 scripts/subset-fonts.py 生成；缺字时回退系统字体 */
+  @font-face { font-family: 'Noto Sans SC'; src: url('./visitor/static/web/fonts/NotoSansSC-subset.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+  @font-face { font-family: 'Noto Serif SC'; src: url('./visitor/static/web/fonts/NotoSerifSC-subset.woff2') format('woff2'); font-weight: 600 700; font-display: swap; }
+</style>
 <style>
   /* 颜色取自 packages/shared/tokens.ts 的亮色 token */
   :root { --bg: #F3F5F0; --surface: #FFFFFC; --border: #DDE5DF; --text: #1B2A33; --text-2: #56636A; --primary: #1F5E7A; --action: #26704F; --on-color: #FFFFFF; }

@@ -1,3 +1,7 @@
+/* 内嵌字体：只含本项目用到的字，由 scripts/subset-fonts.py 生成；缺字时回退系统字体 */
+@font-face { font-family: 'Noto Sans SC'; src: url('../../packages/shared/fonts/NotoSansSC-subset.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'Noto Serif SC'; src: url('../../packages/shared/fonts/NotoSerifSC-subset.woff2') format('woff2'); font-weight: 600 700; font-display: swap; }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {

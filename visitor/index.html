@@ -4,9 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover" />
     <title>青石古镇 · 游客端</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+    <style>
+      /* 内嵌字体：只含本项目用到的字，由 scripts/subset-fonts.py 生成；缺字时回退系统字体 */
+      @font-face { font-family: 'Noto Sans SC'; src: url('./static/web/fonts/NotoSansSC-subset.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+      @font-face { font-family: 'Noto Serif SC'; src: url('./static/web/fonts/NotoSerifSC-subset.woff2') format('woff2'); font-weight: 600 700; font-display: swap; }
+    </style>
   </head>
   <body>
     <div id="app"><!--app-html--></div>

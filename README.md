@@ -44,6 +44,15 @@ app/
 └─ admin/               景区后台（views / components / services / stores）
 ```
 
+### 字体
+
+H5 和后台都内嵌了裁剪过的 Noto Sans SC / Noto Serif SC（约 260 KB + 320 KB，woff2），不依赖 Google Fonts，国内网络也能正常显示。
+
+- 字体只包含源码里出现过的字（约 850 个汉字）加常用标点。游客在输入框里打的字如果不在其中，会回退系统字体。
+- 新增文案出现新汉字后，重新运行 `python scripts/subset-fonts.py <字体源文件目录>`，脚本开头写了依赖和字体下载地址。生成的文件需要提交。
+- 游客端字体放在 `visitor/src/static/web/`，这个目录只打包进 H5，不进小程序包。
+- 字体按 SIL Open Font License 1.1 授权，授权文本见 `packages/shared/fonts/OFL.txt`。
+
 ### 主题怎么实现
 
 - 颜色只在 `packages/shared/tokens.ts` 里定义。页面样式一律写 `var(--token)`，不写十六进制颜色。
@@ -72,4 +81,4 @@ app/
 - 跳到地图时可以直接选中目标，例如安全页「离你最近」、首页「厕所服务点」、AI 导游「在地图上看状元祠」、排队页「去看看 石拱桥」。
 - 首页宫格「约观光车」和地图观光车卡片「预约观光车」会直接打开行程页的「观光车预约」tab。
 - 排队页播放键可以在播放 / 暂停之间切换（原型只有暂停图标）。
-- 小程序端标题字体用 `uni.loadFontFace` 从 jsDelivr 的 fontsource 加载，地址在 `visitor/src/App.vue`。正式上线前建议换成自己的 CDN 并做字体子集化。
+- 小程序端标题字体用 `uni.loadFontFace` 从 jsDelivr 的 fontsource 远程加载（约 1.5 MB），地址在 `visitor/src/App.vue`；加载失败时回退系统字体。正式上线前建议把上文「字体」一节的裁剪字体放到自己的 CDN，并在小程序后台配置 downloadFile 合法域名。
