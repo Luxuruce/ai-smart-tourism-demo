@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { DEMO_NOW, type DispatchDraft, type Ticket } from '@qs/shared'
-import { baseCounts, groupOf } from '@/services/tickets'
+import { baseCounts, groupOf, reviewTicketStart } from '@/services/tickets'
 
 /**
  * 工单列表放在 store 里：驾驶舱派单生成的新工单、详情抽屉里的状态变化，工单中心都能看到。
@@ -12,6 +12,8 @@ export const useTicketStore = defineStore('tickets', {
     /** 初始列表里每张工单的统计分组，用来算变化量 */
     initialGroups: {} as Record<string, 'pending' | 'processing' | 'resolved'>,
     loaded: false,
+    /** 下一张由评论生成的工单号（从 #1040 起） */
+    nextReviewNo: reviewTicketStart,
   }),
   getters: {
     counts(s) {
@@ -64,12 +66,16 @@ export const useTicketStore = defineStore('tickets', {
       t.statusText = '已关闭'
       t.history.push({ label: '已关闭', time: DEMO_NOW })
     },
-    /** 驾驶舱派单生成的新工单，插到最前面 */
-    addDispatched(d: DispatchDraft): Ticket {
+    /** 评论明细「生成工单」用的下一个工单号 */
+    takeReviewNo(): string {
+      return `#${this.nextReviewNo++}`
+    },
+    /** 驾驶舱派单、评论生成的新工单，插到最前面 */
+    addDispatched(d: DispatchDraft, source = '由运营驾驶舱派单'): Ticket {
       const t: Ticket = {
         id: d.ticketId, text: d.desc, aiType: d.aiType, area: d.area, owner: d.owner,
         status: 'pending', statusText: '待受理', elapsed: '刚刚',
-        history: [{ label: '提交', time: DEMO_NOW, note: '由运营驾驶舱派单' }],
+        history: [{ label: '提交', time: DEMO_NOW, note: source }],
       }
       this.list.unshift(t)
       return t

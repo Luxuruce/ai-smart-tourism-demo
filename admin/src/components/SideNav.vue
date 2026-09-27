@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// 侧栏固定 7 项，其中 3 项可点，其余为弱化的不可点文本
+// 侧栏固定 7 项，其中 5 项可点（v1.2 起评论明细、知识库可点），其余为弱化的不可点文本
 const items = [
   { label: '运营驾驶舱', to: '/' },
-  { label: '评论明细' },
+  { label: '评论明细', to: '/reviews' },
   { label: '合规自检', to: '/compliance' },
   { label: '工单中心', to: '/tickets' },
-  { label: 'AI 问答与知识库' },
+  { label: 'AI 问答与知识库', to: '/knowledge' },
   { label: '机位与商户' },
   { label: '数据源' },
 ]

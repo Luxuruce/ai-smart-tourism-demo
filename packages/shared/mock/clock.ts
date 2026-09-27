@@ -1,6 +1,8 @@
 // 演示时钟：所有「现在」相关的文案都基于固定时间，不读系统时间。
 
 export const DEMO_NOW = '14:18'
+/** 演示日期（审核记录等需要日期的地方用） */
+export const DEMO_DATE = '09-27'
 export const CLOSING_TIME = '17:30'
 
 export function toMinutes(hhmm: string): number {

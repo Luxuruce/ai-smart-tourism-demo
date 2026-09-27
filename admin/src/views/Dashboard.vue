@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // B1 运营驾驶舱（Dashboard.dc.html）
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import type { Alert, DispatchDraft } from '@qs/shared'
+import type { Alert, DispatchDraft, TopQuestion } from '@qs/shared'
 import StateBlock from '@/components/StateBlock.vue'
 import AppDialog from '@/components/AppDialog.vue'
+import DispatchDialog from '@/components/DispatchDialog.vue'
 import TrendChart from '@/components/TrendChart.vue'
 import { useAsync } from '@/components/useAsync'
 import { toast } from '@/components/toast'
@@ -12,8 +13,11 @@ import {
   dispatchTicket, getAlerts, getBadRateTrend, getComplaintShares, getCrowdReviews, getDataSources, getKpis,
   getTopQuestions, pushAdvice, pushCopy,
 } from '@/services/dashboard'
-import { getTickets, owners } from '@/services/tickets'
+import { getKnowledgeEntries, getPendingQuestions } from '@/services/knowledge'
+import { tagSlug } from '@/services/reviews'
+import { getTickets } from '@/services/tickets'
 import { useAlertStore } from '@/stores/alerts'
+import { useKnowledgeStore } from '@/stores/knowledge'
 import { useTicketStore } from '@/stores/tickets'
 
 const sources = useAsync(getDataSources)
@@ -28,7 +32,27 @@ const ticketStore = useTicketStore()
 const router = useRouter()
 
 const pending = computed(() => (alerts.data.value ?? []).filter((a) => !alertStore.handled(a.id)).length)
-const gapCount = computed(() => (questions.data.value ?? []).filter((q) => q.flag?.kind === 'gap').length)
+// 「知识库待补 N 条」和「待补」标签读知识库（14.3 11.3.2 / 11.3.7、清单 12.3）
+const knowledge = useKnowledgeStore()
+onMounted(async () => {
+  if (knowledge.loaded) return
+  try {
+    const [p, e] = await Promise.all([getPendingQuestions(), getKnowledgeEntries()])
+    knowledge.init(p, e)
+  } catch {
+    // 知识库加载失败时只影响「待补」数字，驾驶舱其他内容照常显示
+  }
+})
+const gapCount = computed(() => (knowledge.loaded ? knowledge.pending.length : 0))
+/** 「待补」标签：补录后改为「已补录 · 待审核」（不可点），审核通过后去掉 */
+function flagOf(q: TopQuestion) {
+  if (!q.flag) return null
+  if (q.flag.kind !== 'gap' || !q.pendingId) return { text: q.flag.text, kind: q.flag.kind, link: false }
+  const state = knowledge.pendingState(q.pendingId)
+  if (state === 'done') return null
+  if (state === 'submitted') return { text: '已补录 · 待审核', kind: 'submitted', link: false }
+  return { text: q.flag.text, kind: 'gap', link: true }
+}
 const maxShare = computed(() => Math.max(1, ...(shares.data.value ?? []).map((s) => s.percent)))
 
 // 推送前必须二次确认（PRD：推送和派单由人工确认，AI 只给建议）
@@ -62,17 +86,20 @@ function openDispatch(a: Alert) {
   dispatching.value = a
   draft.value = { ...a.dispatch }
 }
-async function doDispatch() {
+function closeDispatch() {
+  dispatching.value = null
+  draft.value = null
+}
+async function doDispatch(d: DispatchDraft) {
   const a = dispatching.value
-  const d = draft.value
-  if (!a || !d || !d.desc.trim()) return
+  if (!a) return
   sending.value = true
   try {
     await dispatchTicket(d)
     if (!ticketStore.loaded) ticketStore.init(await getTickets())
     ticketStore.addDispatched(d)
     alertStore.markDispatched(a.id, d.ticketId)
-    dispatching.value = null
+    closeDispatch()
     router.push({ path: '/tickets', query: { highlight: d.ticketId } })
   } catch (e) {
     toast(e instanceof Error ? e.message : '派单失败，请重试')
@@ -120,7 +147,7 @@ async function doDispatch() {
           <div class="panel__head panel__head--center">
             <h2 class="panel__title panel__title--grow">游客在问什么 · 今日 TOP 6</h2>
             <span class="panel__note">来自 AI 导游问答</span>
-            <span v-if="gapCount" class="badge-warn">知识库待补 {{ gapCount }} 条</span>
+            <RouterLink v-if="gapCount" to="/knowledge" class="badge-warn">知识库待补 {{ gapCount }} 条</RouterLink>
           </div>
           <StateBlock :status="questions.status.value" :rows="6" :error="questions.error.value" empty-text="今天还没有游客提问" @retry="questions.reload">
             <ol class="qs">
@@ -128,7 +155,12 @@ async function doDispatch() {
                 <span class="q__rank">{{ q.rank }}</span>
                 <span class="q__text">{{ q.text }}</span>
                 <span class="q__count">{{ q.count }}</span>
-                <span :class="['q__flag', q.flag ? `q__flag--${q.flag.kind}` : '']">{{ q.flag?.text }}</span>
+                <RouterLink
+                  v-if="flagOf(q)?.link"
+                  :to="{ path: '/knowledge', query: { highlight: q.pendingId } }"
+                  class="q__flag q__flag--gap q__flag--link"
+                >{{ flagOf(q)?.text }}</RouterLink>
+                <span v-else :class="['q__flag', flagOf(q) ? `q__flag--${flagOf(q)?.kind}` : '']">{{ flagOf(q)?.text }}</span>
               </li>
             </ol>
           </StateBlock>
@@ -168,11 +200,17 @@ async function doDispatch() {
         <section class="card panel panel--grow">
           <h2 class="panel__title">差评结构（本月，按 AI 标签）</h2>
           <StateBlock :status="shares.status.value" :rows="6" :row-height="22" :error="shares.error.value" @retry="shares.reload">
-            <div v-for="s in shares.data.value ?? []" :key="s.label" class="bar" :title="`${s.label} ${s.percent}%`">
+            <RouterLink
+              v-for="s in shares.data.value ?? []"
+              :key="s.label"
+              class="bar"
+              :to="{ path: '/reviews', query: { tag: tagSlug(s.label), score: 'bad' } }"
+              :title="`${s.label} ${s.percent}%，查看这类差评`"
+            >
               <span class="bar__label">{{ s.label }}</span>
               <div class="bar__track"><div class="bar__fill" :style="{ width: (s.percent / maxShare) * 100 + '%' }" /></div>
               <span class="bar__value">{{ s.percent }}%</span>
-            </div>
+            </RouterLink>
           </StateBlock>
         </section>
       </div>
@@ -201,33 +239,15 @@ async function doDispatch() {
           </tbody>
         </table>
         <p class="confirm__note reviews__footer">{{ reviews.data.value?.footer }}</p>
+        <!-- 保留弹窗（PRD RC-8），另可跳到评论明细看全部，带上筛选条件（14.3） -->
+        <RouterLink class="reviews__all" :to="{ path: '/reviews', query: { spot: 'wc', tag: 'queue', score: 'bad' } }" @click="reviewsOpen = false">查看全部评论 ›</RouterLink>
       </StateBlock>
       <template #footer>
         <button type="button" class="btn-outline" data-autofocus @click="reviewsOpen = false">关闭</button>
       </template>
     </AppDialog>
 
-    <AppDialog :open="!!dispatching" title="派单" :width="520" @close="dispatching = null">
-      <form v-if="draft" class="dispatch" @submit.prevent="doDispatch">
-        <div class="dispatch__row">
-          <label class="field-label">类型<input v-model="draft.aiType" class="field-input" readonly /></label>
-          <label class="field-label">区域<input v-model="draft.area" class="field-input" readonly /></label>
-        </div>
-        <label class="field-label">责任人
-          <select v-model="draft.owner" class="field-input" data-autofocus>
-            <option v-for="o in owners" :key="o" :value="o">{{ o }}</option>
-          </select>
-        </label>
-        <label class="field-label">说明<textarea v-model="draft.desc" class="field-input" rows="3" /></label>
-        <p class="confirm__note">确认后生成工单 {{ draft.ticketId }}，并通知责任人。</p>
-      </form>
-      <template #footer>
-        <button type="button" class="btn-outline" @click="dispatching = null">取消</button>
-        <button type="button" class="btn-action" :disabled="sending || !draft?.desc.trim()" @click="doDispatch">
-          {{ sending ? '正在派单…' : '确认派单' }}
-        </button>
-      </template>
-    </AppDialog>
+    <DispatchDialog :draft="draft" :busy="sending" @confirm="doDispatch" @close="closeDispatch" />
   </div>
 </template>
 
@@ -265,6 +285,12 @@ async function doDispatch() {
 .q__flag { width: 150px; text-align: right; font-size: 12px; font-weight: 700; }
 .q__flag--gap { color: var(--danger-fg); }
 .q__flag--biz { color: var(--primary-fg); }
+.q__flag--submitted { color: var(--text-2); }
+.q__flag--link:hover { text-decoration: underline; }
+a.badge-warn:hover { color: var(--warn-fg); text-decoration: underline; }
+a.bar { color: var(--text); border-radius: 6px; margin: 0 -6px; padding: 2px 6px; }
+a.bar:hover { background: var(--bg); color: var(--text); }
+.reviews__all { display: inline-block; margin-top: 8px; font-weight: 700; }
 .panel:has(.alerts) { gap: 10px; }
 .pending { font-size: 12px; color: var(--danger-fg); font-weight: 700; }
 .alerts { display: flex; flex-direction: column; gap: 10px; }
@@ -289,8 +315,7 @@ async function doDispatch() {
 .reviews td { padding: 8px 10px; border-top: 1px solid var(--surface-muted); vertical-align: top; }
 .reviews td:nth-child(-n+3) { white-space: nowrap; color: var(--text-2); }
 .reviews__footer { margin-top: 10px; }
-.dispatch { display: flex; flex-direction: column; gap: 12px; }
-.dispatch__row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
 .bar { display: flex; align-items: center; gap: 10px; }
 .bar__label { width: 96px; font-size: 13px; }
 .bar__track { flex-grow: 1; height: 10px; }

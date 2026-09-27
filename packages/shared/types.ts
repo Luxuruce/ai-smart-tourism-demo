@@ -362,6 +362,8 @@ export interface KnowledgeEntry {
   /** 含年代、人物、数字的条目需要重点审核（PRD S0-2） */
   keyReview: boolean
   answer?: string
+  /** 由待补问题补录而来：对应的待补问题 id */
+  fromPending?: string
 }
 
 export interface TopQuestion {
