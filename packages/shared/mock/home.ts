@@ -1,5 +1,5 @@
 // 来源：Main.dc.html
-import type { Persona, PersonaId, Recommendation } from '../types'
+import type { Persona, PersonaId, Recommendation, Route } from '../types'
 import { CLOSING_TIME, hoursLeftText } from './clock'
 
 export const personas: Persona[] = [
@@ -14,10 +14,11 @@ export const DEFAULT_PERSONA: PersonaId = 'photo'
 export const homeInfo = {
   name: '青石古镇',
   subtitle: '[示例景区] · 今天想怎么逛？',
-  blocks: [
+  blocks: <{ label: string; value: string; link?: Route }[]>[
     { label: '天气', value: '26℃ 多云' },
     { label: `${CLOSING_TIME} 闭园`, value: `还能逛 ${hoursLeftText()}` },
-    { label: '观光车 · 南门', value: '3 分钟后' },
+    // 14.2 11.2.5：点击进入观光车预约；天气、闭园不可点
+    { label: '观光车 · 南门', value: '3 分钟后', link: { page: 'trip', tripTab: 'bus' } as Route },
   ],
   alert: {
     title: '文昌阁 14:00–16:00 是排队高峰',

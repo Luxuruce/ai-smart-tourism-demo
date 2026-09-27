@@ -74,7 +74,13 @@ const openTrip = () => go({ page: 'trip', tripTab: 'plan' })
       </view>
       <view class="info-grid">
         <template v-if="info.data.value">
-          <view v-for="b in info.data.value.blocks" :key="b.label" class="info-block">
+          <view
+            v-for="b in info.data.value.blocks"
+            :key="b.label"
+            :class="['info-block', { 'info-block--link': b.link }]"
+            :role="b.link ? 'link' : undefined"
+            @tap="b.link && go(b.link)"
+          >
             <text class="info-block__label">{{ b.label }}</text>
             <text class="info-block__value">{{ b.value }}</text>
           </view>
@@ -208,6 +214,9 @@ const openTrip = () => go({ page: 'trip', tripTab: 'plan' })
   display: flex;
   flex-direction: column;
   gap: r(2);
+}
+.info-block--link {
+  @include tappable;
 }
 .info-block--loading {
   height: r(56);

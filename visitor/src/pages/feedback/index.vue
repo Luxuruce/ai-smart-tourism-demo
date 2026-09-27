@@ -7,7 +7,8 @@ import Icon from '@/components/Icon.vue'
 import PlaceholderButton from '@/components/PlaceholderButton.vue'
 import StateView from '@/components/StateView.vue'
 import {
-  categories, classify, getForm, getMyFeedbacks, getProgress, safetyCategory, submitFeedback,
+  categories, classify, getForm, getMyFeedbacks, progressSteps, progressTextFor, rateFeedback, rateText, safetyCategory,
+  submitFeedback,
 } from '@/services/feedback'
 import { spotName } from '@/services/map'
 import { useFeedbackStore } from '@/stores/feedback'
@@ -22,7 +23,6 @@ const { pageStyle } = usePage()
 const store = useFeedbackStore()
 
 const form = useAsync(getForm, { isEmpty: () => false })
-const progress = useAsync(getProgress)
 
 /** 从排队页「反馈问题」「不太好」进入时，带着来源和机位 */
 const fromSpot = ref<string | null>(null)
@@ -48,6 +48,33 @@ function chooseCategory(c: string) {
 const sending = ref(false)
 const sendError = ref('')
 const sent = ref<VisitorFeedback | null>(null)
+/** 提交后读 store 里的同一条，计时器更新状态时这里跟着变（14.2 11.2.3） */
+const live = computed(() => (sent.value ? store.find(sent.value.id) ?? sent.value : null))
+const steps = computed(() => {
+  const f = live.value
+  if (!f) return []
+  const text = progressTextFor(f.category)
+  const reopened = store.reopened.includes(f.id)
+  const accepted = f.status !== 'pending'
+  const resolved = f.status === 'resolved'
+  return [
+    { label: `${progressSteps[0]} · 刚刚`, done: true },
+    { label: accepted ? `${progressSteps[1]} · ${text.accepted}` : `待受理 · 已通知${text.accepted.replace(' 正在处理', '')}`, done: accepted },
+    {
+      label: reopened ? '处理中 · 已重新打开，工作人员会再次处理' : resolved ? `${progressSteps[2]} · ${text.resolved}` : '已解决 · 等你确认',
+      done: resolved,
+    },
+  ]
+})
+async function rate(r: 'good' | 'bad') {
+  if (!live.value) return
+  try {
+    await rateFeedback(live.value.id, r)
+    store.rate(live.value.id, r)
+  } catch {
+    uni.showToast({ title: '评价没提交成功，请重试', icon: 'none' })
+  }
+}
 
 async function submit() {
   const content = text.value.trim()
@@ -57,7 +84,7 @@ async function submit() {
   try {
     // 先保证「我的反馈」初始列表已加载，新工单插在最前面
     if (!store.loaded) store.init(await getMyFeedbacks())
-    const item = await submitFeedback(content)
+    const item = await submitFeedback(content, category.value ?? classify(content))
     store.add(item)
     sent.value = item
   } catch (e) {
@@ -136,14 +163,17 @@ async function submit() {
       </view>
       <view class="card steps">
         <text class="steps__title">处理进度</text>
-        <StateView :status="progress.status.value" :rows="3" :row-height="20" :error="progress.error.value" @retry="progress.reload">
-          <view class="steps__list">
-            <view v-for="p in progress.data.value ?? []" :key="p.label" class="steps__item">
-              <view :class="['steps__dot', { 'steps__dot--done': p.done }]" />
-              <text :class="{ 'steps__todo': !p.done }">{{ p.label }}</text>
-            </view>
+        <view class="steps__list" aria-live="polite">
+          <view v-for="p in steps" :key="p.label" class="steps__item">
+            <view :class="['steps__dot', { 'steps__dot--done': p.done }]" />
+            <text :class="{ 'steps__todo': !p.done }">{{ p.label }}</text>
           </view>
-        </StateView>
+        </view>
+        <view v-if="live && live.status === 'resolved' && !live.rating" class="steps__rate">
+          <view class="btn btn--outline btn--grow h40 small" role="button" @tap="rate('good')">满意</view>
+          <view class="btn btn--plain btn--grow h40 small" role="button" @tap="rate('bad')">还没解决</view>
+        </view>
+        <text v-else-if="live?.rating === 'good'" class="steps__rated" role="status">{{ rateText.good }}</text>
       </view>
       <view class="edit__spacer" />
       <view class="sent__actions">
@@ -424,6 +454,17 @@ async function submit() {
 .steps__dot--done {
   border: none;
   background: var(--heat-low-dot);
+}
+.steps__rate {
+  display: flex;
+  gap: r(8);
+}
+.small {
+  font-size: r(13);
+}
+.steps__rated {
+  font-size: r(13);
+  color: var(--ok-fg);
 }
 .steps__todo {
   color: var(--text-2);

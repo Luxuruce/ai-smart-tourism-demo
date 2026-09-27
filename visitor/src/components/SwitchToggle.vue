@@ -1,17 +1,20 @@
 <script setup lang="ts">
 defineOptions({ options: { virtualHost: true } })
 
-const props = defineProps<{ modelValue: boolean; label: string }>()
+const props = defineProps<{ modelValue: boolean; label: string; disabled?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
-const toggle = () => emit('update:modelValue', !props.modelValue)
+const toggle = () => {
+  if (!props.disabled) emit('update:modelValue', !props.modelValue)
+}
 </script>
 
 <template>
   <view
-    :class="['sw', { 'sw--on': modelValue }]"
+    :class="['sw', { 'sw--on': modelValue, 'sw--disabled': disabled }]"
     role="switch"
     :aria-checked="modelValue ? 'true' : 'false'"
+    :aria-disabled="disabled ? 'true' : 'false'"
     :aria-label="`${label}：${modelValue ? '已开启' : '已关闭'}`"
     @tap="toggle"
   >
@@ -45,6 +48,10 @@ const toggle = () => emit('update:modelValue', !props.modelValue)
 .sw--on {
   justify-content: flex-end;
   background: var(--switch-on);
+}
+.sw--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 .sw__knob {
   width: r(20);

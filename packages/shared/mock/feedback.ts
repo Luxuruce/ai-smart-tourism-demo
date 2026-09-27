@@ -41,16 +41,36 @@ export function summarizeFeedback(text: string): string {
   return chars.length > 14 ? `${chars.slice(0, 14).join('')}…` : first
 }
 
-/** 提交后生成的工单号（与后台工单 #1026 对应） */
+/** 提交后生成的工单号：第一条为 #1026（与后台对应），第二条起从 #1030 递增，避免与后台重号（清单 10.3） */
 export const FIRST_TICKET_NO = 1026
+export const NEXT_TICKET_NO = 1030
+
+/**
+ * 模拟后台处理的计时（14.2 11.2.3）：提交后 15 秒「已受理」，30 秒「已解决」。
+ * 演示时可以调短。
+ */
+export const PROGRESS_TIMING = { acceptedMs: 15_000, resolvedMs: 30_000 }
+
+/** 处理进度文案按 AI 类型区分，责任人与派单预填规则一致（清单 12.3） */
+export const PROGRESS_TEXT: Record<string, { accepted: string; resolved: string }> = {
+  '卫生与设施': { accepted: '[保洁 A] 正在处理', resolved: '已补充厕纸并拖干地面' },
+  '排队与拥挤': { accepted: '[安保 B] 正在处理', resolved: '已安排工作人员到现场维持秩序' },
+  '讲解与内容': { accepted: '[运营 C] 正在处理', resolved: '已转知识库复核，确认后更新讲解' },
+  '动线与指引': { accepted: '[运营 C] 正在处理', resolved: '已临时张贴正确指引' },
+  '价格与性价比': { accepted: '[市场巡查 D] 正在处理', resolved: '已联系商户核实，并要求明码标价' },
+  '安全 · 拥挤': { accepted: '值班主管正在处理', resolved: '工作人员已到场处理' },
+}
+/** 服务态度、商业化、其他 */
+export const PROGRESS_TEXT_DEFAULT = { accepted: '值班主管正在处理', resolved: '值班主管已联系相关人员处理' }
+export const progressTextOf = (category?: string) => (category && PROGRESS_TEXT[category]) || PROGRESS_TEXT_DEFAULT
+
+/** 「还没解决」后回到处理中（PRD S5-3） */
+export const REOPENED_NOTE = '已重新打开，工作人员会再次处理'
 
 export const submittedNote = '已通知现场工作人员 · 通常 15 分钟内处理'
 
-export const feedbackProgress = [
-  { label: '已提交 · 刚刚', done: true },
-  { label: '待受理 · 已通知[保洁 A]', done: false },
-  { label: '已解决 · 等你确认', done: false },
-]
+/** 处理进度三步的名称；第二、三步的说明按 AI 类型取 PROGRESS_TEXT */
+export const PROGRESS_STEPS = ['已提交', '已受理', '已解决'] as const
 
 /**
  * 「我的反馈」初始只有 #1021。原型为展示效果预置了 #1026，
@@ -62,5 +82,5 @@ export const initialFeedbacks: VisitorFeedback[] = [
 
 export const RATE_TEXT = {
   good: '感谢评价，已反馈给景区',
-  bad: '已重新打开工单，工作人员会再次处理',
+  bad: REOPENED_NOTE,
 }

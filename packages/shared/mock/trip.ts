@@ -36,7 +36,8 @@ export const tripPlans: Record<PersonaId, TripPlan> = {
       { time: '15:40', place: '老街中段休息亭', tip: '歇一歇再上车，旁边有茶铺。' },
       { time: '16:00', place: '观光车 · 文昌阁站', tip: '15:30 班次已约满，已改约 16:00；坐到魁星楼站，省去最长的一段坡路。', adjusted: true },
       { time: '16:20', place: '魁星楼', tip: '几乎不用等，看飞檐和远山；楼下就是观光车站。' },
-      { time: '16:50', place: '观光车 · 魁星楼站', tip: '坐 17:00 末班车回南门，17:30 闭园前出园。' },
+      // 清单 10.3：回程不预约
+      { time: '16:50', place: '观光车 · 魁星楼站', tip: '回程到站直接上车，无需预约；17:00 末班，建议提前 10 分钟到站。' },
     ],
   },
   family: {
@@ -88,6 +89,8 @@ export const busInfo: BusInfo = {
   // PRD 规则 R1-3：不设付费优先，必须显示
   fairness: '预约只锁定乘车时段，所有人同价，不设付费优先。',
   nightNotice: '观光车 17:00 后停运，夜游请步行游览。',
+  /** 带老人身份下，时段列表下方的回程说明（14.1） */
+  elderReturnNote: '回程（魁星楼站 → 南门）无需预约，到站直接上车',
   phone: '138****0000 [示例]',
   defaultSlot: '16:00',
   maxSeats: 6,

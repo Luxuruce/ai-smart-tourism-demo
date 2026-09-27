@@ -9,8 +9,8 @@ import PlaceholderButton from '@/components/PlaceholderButton.vue'
 import StateView from '@/components/StateView.vue'
 import FabFeedback from '@/components/FabFeedback.vue'
 import {
-  distanceLabel, distanceValue, focusTarget, getMapMeta, getServicePoints, getSpots, glyphOf, heatLabel, isCheckin, serviceTypeOrder,
-  serviceTypes, waitText,
+  distanceLabel, distanceValue, focusTarget, getMapMeta, getServicePoints, getSpots, glyphOf, heatLabel, isCheckin, planNav,
+  serviceTypeOrder, serviceTypes, waitText, type NavPlan,
 } from '@/services/map'
 import { useMapFocusStore } from '@/stores/mapFocus'
 import { usePrefsStore } from '@/stores/prefs'
@@ -36,7 +36,7 @@ const showService = ref(true)
 const panel = ref(false)
 const filter = ref<ScenicFilter>('all')
 const svcTypes = ref<ServiceType[]>([...serviceTypeOrder])
-const selLayer = ref<'scenic' | 'service'>('scenic')
+const selLayer = ref<'scenic' | 'service' | 'none'>('scenic')
 const sel = ref('wc')
 const svcSel = ref('wc1')
 
@@ -105,6 +105,8 @@ function pickSvc(id: string, toMap = false) {
 
 // 从其他页跳来时（如安全页「离你最近」），选中指定的景点或设施
 onShow(() => {
+  const navReq = focus.takeNav()
+  if (navReq) startNav(navReq.target, navReq.from)
   const id = focus.take()
   const target = id ? focusTarget(id) : null
   if (!id || !target) return
@@ -121,6 +123,75 @@ onShow(() => {
 })
 
 const bookBus = () => go({ page: 'trip', tripTab: 'bus' })
+
+// —— 定位到我（14.2 11.1.4）——
+const blinking = ref(false)
+const locPrompt = ref(false)
+function locateMe() {
+  if (!prefs.location) {
+    locPrompt.value = true
+    return
+  }
+  view.value = 'map'
+  selLayer.value = 'none'
+  blinking.value = false
+  // 重新触发闪烁动画
+  setTimeout(() => (blinking.value = true), 20)
+  setTimeout(() => (blinking.value = false), 1300)
+}
+/** 去「我的」开启定位，并高亮那一行 */
+function goEnableLocation() {
+  locPrompt.value = false
+  prefs.flashLocation = true
+  go({ page: 'me' })
+}
+
+// —— 步行导航（14.2 11.1.5、14.5）——
+const nav = ref<NavPlan | null>(null)
+const arrived = ref(false)
+function startNav(targetId: string, fromSpotId?: string) {
+  if (!prefs.location) {
+    locPrompt.value = true
+    return
+  }
+  const plan = planNav(targetId, fromSpotId)
+  if (!plan) return
+  panel.value = false
+  view.value = 'map'
+  nav.value = plan
+  arrived.value = false
+}
+function endNav() {
+  nav.value = null
+  arrived.value = false
+}
+/** 路线：起点 → 拐点（终点的横坐标、起点的纵坐标）→ 终点，用两段横竖虚线画出 */
+const navSegments = computed(() => {
+  const n = nav.value
+  if (!n) return []
+  const corner = { x: n.to.x, y: n.from.y }
+  return [
+    { dir: 'h', left: Math.min(n.from.x, corner.x), top: n.from.y, len: Math.abs(corner.x - n.from.x) },
+    { dir: 'v', left: corner.x, top: Math.min(corner.y, n.to.y), len: Math.abs(n.to.y - corner.y) },
+  ].filter((seg) => seg.len > 0)
+})
+/** 导航中只保留起点和终点，其他图钉变淡 */
+const navKeep = computed(() => {
+  const n = nav.value
+  if (!n) return new Set<string>()
+  const ids = new Set([n.targetId])
+  const from = allSpots.value.find((s) => s.x === n.from.x && s.y === n.from.y)
+  if (from) ids.add(from.id)
+  return ids
+})
+/** 终点不在地图上（替代机位）时单独画一个终点标记 */
+const navOffMapEnd = computed(() => {
+  const n = nav.value
+  if (!n) return false
+  return !allSpots.value.some((s) => s.id === n.targetId) && !allSvc.value.some((s) => s.id === n.targetId)
+})
+/** 洗手间、游客中心、休息点可以导航；停车场仍是占位 */
+const canNavSvc = (s: ServicePoint) => ['wc', 'info', 'rest'].includes(s.type)
 
 // 图钉气泡变宽后，靠近地图左右边缘的气泡往里收，圆点仍对准坐标（13.0）
 const MAP_W = 350
@@ -179,12 +250,23 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
 
     <StateView :status="loadStatus" :rows="1" :row-height="380" empty-text="地图数据暂时为空" error="地图数据加载失败" @retry="reload">
       <view v-if="view === 'map'" class="map-wrap">
-        <view class="map">
+        <view :class="['map', { 'map--nav': nav }]">
           <image class="map__layer" :src="`/static/map/base-${theme.name}.svg`" aria-hidden="true" />
           <image v-if="showRoute" class="map__layer" :src="`/static/map/route-${theme.name}.svg`" aria-hidden="true" />
           <view
+            v-for="(seg, i) in navSegments"
+            :key="i"
+            :class="['route', `route--${seg.dir}`]"
+            :style="seg.dir === 'h' ? `left:${px(seg.left)};top:${px(seg.top)};width:${px(seg.len)}` : `left:${px(seg.left)};top:${px(seg.top)};height:${px(seg.len)}`"
+            aria-hidden="true"
+          />
+          <view v-if="nav && navOffMapEnd" class="nav-end" :style="`left:${px(nav.to.x)};top:${px(nav.to.y)}`">
+            <text class="nav-end__label">{{ nav.name }}</text>
+            <view class="nav-end__dot" />
+          </view>
+          <view
             v-if="prefs.location && meta.data.value"
-            class="me-dot"
+            :class="['me-dot', { 'me-dot--blink': blinking }]"
             :style="`left:${px(meta.data.value.me.x)};top:${px(meta.data.value.me.y)}`"
             aria-label="我的位置"
           />
@@ -192,7 +274,7 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
           <view
             v-for="s in shownSvc"
             :key="s.id"
-            class="svc-pin"
+            :class="['svc-pin', { 'pin--faded': nav && !navKeep.has(s.id) }]"
             :style="`left:${px(s.x)};top:${px(s.y)}`"
             role="button"
             :aria-label="`${serviceTypes[s.type].label}：${s.name}`"
@@ -205,7 +287,7 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
           <view
             v-for="s in shownSpots"
             :key="s.id"
-            :class="['pin', `pin--${pinAlign(s)}`]"
+            :class="['pin', `pin--${pinAlign(s)}`, { 'pin--faded': nav && !navKeep.has(s.id) }]"
             :style="`left:${px(s.x)};top:${px(s.y)}`"
             role="button"
             :aria-label="`${s.name}，${heatLabel(s.heat)}，${waitText(s.waitMin)}`"
@@ -218,7 +300,14 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
 
           <view v-if="noLayer" class="map__empty">已隐藏全部图层，打开上方任一图层</view>
 
-          <PlaceholderButton shape="circle" icon="locate" aria-label="定位到我" extra-style="position:absolute;right:10px;top:10px;" />
+          <view class="locate" role="button" aria-label="定位到我" @tap="locateMe">
+            <Icon name="locate" color="text" :size="20" />
+          </view>
+          <view v-if="locPrompt" class="loc-prompt" role="alert">
+            <text class="loc-prompt__text">开启定位后才能显示你的位置</text>
+            <view class="loc-prompt__go" role="link" @tap="goEnableLocation">去开启 ›</view>
+            <view class="loc-prompt__x" role="button" aria-label="关闭提示" @tap="locPrompt = false">×</view>
+          </view>
 
           <view v-if="panel" class="panel" role="dialog" aria-label="图层与筛选">
             <view class="panel__head">
@@ -258,19 +347,44 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
           </view>
         </view>
 
-        <view v-if="selScenicVisible && selSpot" class="card">
+        <view v-if="nav" class="card nav-card" role="region" aria-label="步行导航">
+          <template v-if="!arrived">
+            <text class="nav-card__title">步行导航 · {{ nav.name }}</text>
+            <text class="nav-card__eta">步行约 {{ nav.minutes }} 分钟 · {{ nav.meters }} 米</text>
+            <view class="card__actions">
+              <view class="btn btn--outline" role="button" @tap="endNav">结束导航</view>
+            </view>
+            <view class="nav-card__sim" role="button" @tap="arrived = true">模拟到达（演示）</view>
+          </template>
+          <template v-else>
+            <text class="nav-card__title">已到达 {{ nav.name }}</text>
+            <view class="card__actions">
+              <view class="btn btn--outline" role="button" @tap="endNav">结束</view>
+              <view
+                v-if="nav.kind === 'spot'"
+                class="btn btn--action"
+                role="button"
+                @tap="go({ page: 'queue', id: nav.targetId }); endNav()"
+              >{{ isCheckin(nav.waitMin ?? 0) ? '我到了，开始打卡' : '我到了，开始排队' }}</view>
+              <view v-else class="btn btn--primary" role="button" @tap="go({ page: 'feedback' }); endNav()">这里有问题？反馈</view>
+            </view>
+          </template>
+        </view>
+
+        <view v-if="!nav && selScenicVisible && selSpot" class="card">
           <view class="card__head">
             <text class="card__name">{{ selSpot.name }}</text>
             <HeatChip :heat="selSpot.heat" :text="heatLabel(selSpot.heat)" />
           </view>
           <text class="card__detail">约等 {{ waitText(selSpot.waitMin) }} · {{ selSpot.detail }}</text>
           <view class="card__actions">
-            <view class="btn btn--outline" role="button" @tap="go({ page: 'spot', id: selSpot.id })">查看详情</view>
+            <view class="btn btn--outline btn--sm" role="button" @tap="startNav(selSpot.id)">步行导航</view>
+            <view class="btn btn--outline btn--sm" role="button" @tap="go({ page: 'spot', id: selSpot.id })">查看详情</view>
             <view class="btn btn--action" role="button" @tap="go({ page: 'queue', id: selSpot.id })">{{ isCheckin(selSpot.waitMin) ? '我到了，开始打卡' : '我到了，开始排队' }}</view>
           </view>
         </view>
 
-        <view v-if="selServiceVisible && selSvc" class="card">
+        <view v-if="!nav && selServiceVisible && selSvc" class="card">
           <view class="card__head">
             <text class="glyph glyph--30">{{ glyphOf(selSvc) }}</text>
             <text class="card__name">{{ selSvc.name }}</text>
@@ -280,6 +394,7 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
           <view class="card__actions">
             <view v-if="selSvc.type === 'bus'" class="btn btn--action" role="button" @tap="bookBus">预约观光车</view>
             <view v-else-if="selSvc.type === 'med'" class="btn btn--danger" role="button" @tap="go({ page: 'sos' })">一键求助</view>
+            <view v-else-if="canNavSvc(selSvc)" class="btn btn--outline" role="button" @tap="startNav(selSvc.id)">步行导航</view>
             <PlaceholderButton v-else :label="serviceTypes[selSvc.type].placeholder" extra-style="flex:1 1 0;" />
             <view class="btn btn--primary" role="button" @tap="go({ page: 'feedback' })">这里有问题？反馈</view>
           </view>
@@ -491,7 +606,13 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
   flex-direction: column;
   align-items: center;
   gap: r(2);
+  // 图钉外框是透明的，不能挡住旁边的设施图标：只有气泡和圆点可以点
+  pointer-events: none;
   @include tappable;
+}
+.pin__bubble,
+.pin__dot {
+  pointer-events: auto;
 }
 .pin--left {
   transform: translate(#{r(-7)}, -100%);
@@ -500,6 +621,130 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
 .pin--right {
   transform: translate(calc(-100% + #{r(7)}), -100%);
   align-items: flex-end;
+}
+.locate {
+  position: absolute;
+  right: r(10);
+  top: r(10);
+  z-index: 3;
+  width: r(44);
+  height: r(44);
+  border-radius: r(22);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  @include tappable;
+}
+.loc-prompt {
+  position: absolute;
+  left: r(10);
+  right: r(62);
+  top: r(10);
+  z-index: 4;
+  padding: r(8) r(10);
+  border-radius: r(12);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: r(6);
+  font-size: r(12);
+}
+.loc-prompt__text {
+  flex-grow: 1;
+}
+.loc-prompt__go {
+  color: var(--primary-fg);
+  font-weight: 700;
+  min-height: r(32);
+  display: flex;
+  align-items: center;
+  @include tappable;
+}
+.loc-prompt__x {
+  width: r(32);
+  height: r(32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  font-size: r(18);
+  @include tappable;
+}
+.route {
+  position: absolute;
+  z-index: 1;
+}
+.route--h {
+  height: 0;
+  border-top: 3px dashed var(--primary-fg);
+  transform: translateY(-50%);
+}
+.route--v {
+  width: 0;
+  border-left: 3px dashed var(--primary-fg);
+  transform: translateX(-50%);
+}
+.nav-end {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: r(2);
+}
+.nav-end__label {
+  padding: r(4) r(8);
+  border-radius: r(10);
+  font-size: r(12);
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--surface);
+  border: 2px solid var(--primary-fg);
+  color: var(--primary-fg);
+}
+.nav-end__dot {
+  width: r(10);
+  height: r(10);
+  border-radius: 50%;
+  background: var(--primary-fg);
+  border: 2px solid var(--surface);
+}
+.pin--faded {
+  opacity: 0.25;
+}
+.nav-card__title {
+  font-size: r(17);
+  font-weight: 700;
+}
+.nav-card__eta {
+  font-size: r(14);
+  color: var(--text-2);
+}
+.nav-card__sim {
+  align-self: center;
+  min-height: r(32);
+  display: flex;
+  align-items: center;
+  font-size: r(12);
+  color: var(--text-2);
+  text-decoration: underline;
+  @include tappable;
+}
+.btn--sm {
+  flex: 0 0 auto;
+  padding: 0 r(12);
+  font-size: r(13);
+}
+.me-dot--blink {
+  animation: me-blink 0.6s ease-in-out 2;
+}
+@keyframes me-blink {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1.9); opacity: 0.35; }
 }
 .me-dot {
   position: absolute;

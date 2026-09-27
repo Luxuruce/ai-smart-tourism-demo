@@ -24,7 +24,8 @@
       "minified": true
     },
     "usingComponents": true,
-    "lazyCodeLoading": "requiredComponents"
+    "lazyCodeLoading": "requiredComponents",
+    "darkmode": true
   },
   "mp-toutiao": {
     "appid": "",

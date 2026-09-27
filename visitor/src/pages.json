@@ -8,7 +8,8 @@
     { "path": "pages/spot/index", "style": { "navigationBarTitleText": "机位详情" } },
     { "path": "pages/queue/index", "style": { "navigationBarTitleText": "排队中" } },
     { "path": "pages/feedback/index", "style": { "navigationBarTitleText": "告诉景区" } },
-    { "path": "pages/sos/index", "style": { "navigationBarTitleText": "安全与求助" } }
+    { "path": "pages/sos/index", "style": { "navigationBarTitleText": "安全与求助" } },
+    { "path": "pages/coupons/index", "style": { "navigationBarTitleText": "我的优惠券" } }
   ],
   "globalStyle": {
     "navigationStyle": "custom",

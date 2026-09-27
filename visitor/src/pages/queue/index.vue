@@ -6,6 +6,7 @@ import type { NarrationId } from '@qs/shared'
 import Icon from '@/components/Icon.vue'
 import PlaceholderButton from '@/components/PlaceholderButton.vue'
 import StateView from '@/components/StateView.vue'
+import { scenarioOfSpot } from '@/services/guide'
 import { getQueueContent } from '@/services/queue'
 import { useCollectionStore } from '@/stores/collection'
 import { back, go } from '@/utils/nav'
@@ -145,7 +146,7 @@ function finish() {
             <text class="story__text">{{ version.text }}</text>
             <text class="story__source">{{ c.source }}</text>
             <view class="story__asks">
-              <view v-for="q in c.followUps" :key="q" class="btn btn--line h36 ask" role="link" @tap="go({ page: 'guide' })">{{ q }}</view>
+              <view class="btn btn--line h36 ask" role="link" @tap="go({ page: 'guide', q: scenarioOfSpot(c.spotId) })">关于{{ c.spotName }}，还能问什么？</view>
             </view>
           </view>
 

@@ -211,6 +211,7 @@ function cancelBooking() {
                 </view>
               </template>
             </view>
+            <text v-if="persona.id === 'elder'" class="return-note">{{ bus.data.value.elderReturnNote }}</text>
             <view class="form-row">
               <text class="form-row__label">座位数</text>
               <view class="stepper">
@@ -585,6 +586,11 @@ function cancelBooking() {
 .form-row__value {
   font-size: r(14);
   color: var(--text-2);
+}
+.return-note {
+  font-size: r(12);
+  color: var(--text-2);
+  line-height: 1.6;
 }
 .seat-warn {
   font-size: r(12);

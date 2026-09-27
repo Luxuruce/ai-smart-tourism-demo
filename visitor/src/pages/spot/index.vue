@@ -6,7 +6,9 @@ import Icon from '@/components/Icon.vue'
 import HeatChip from '@/components/HeatChip.vue'
 import PlaceholderButton from '@/components/PlaceholderButton.vue'
 import StateView from '@/components/StateView.vue'
+import { scenarioOfSpot } from '@/services/guide'
 import { heatLabel, isCheckin } from '@/services/map'
+import { useMapFocusStore } from '@/stores/mapFocus'
 import { getSpot } from '@/services/spot'
 import { back, go } from '@/utils/nav'
 import { useAsync } from '@/utils/useAsync'
@@ -38,6 +40,14 @@ const summary = computed(() => {
   if (s.bestLight) parts.push(`最佳光线 ${s.bestLight}（示例）`)
   return parts.join(' · ')
 })
+
+const mapFocus = useMapFocusStore()
+/** 导航到选中的替代机位：起点为当前机位（14.5） */
+function navToAlt() {
+  if (!alt.value) return
+  mapFocus.requestNav(alt.value.id, spotId.value)
+  go({ page: 'map' })
+}
 
 function toggleAlt(id: string) {
   altId.value = altId.value === id ? null : id
@@ -96,7 +106,7 @@ function toggleAlt(id: string) {
         </view>
 
         <view class="links">
-          <view class="btn btn--line btn--grow h44 story" role="link" @tap="go({ page: 'guide' })">
+          <view class="btn btn--line btn--grow h44 story" role="link" @tap="go({ page: 'guide', q: scenarioOfSpot(spotId) })">
             <Icon name="wave" color="primary-fg" :size="16" />先听这里的故事
           </view>
           <PlaceholderButton label="人少了提醒我 · 即将上线" extra-style="flex:1 1 0;" />
@@ -106,7 +116,7 @@ function toggleAlt(id: string) {
 
     <view class="bottom-bar bar">
       <view v-if="alt" class="bar__row">
-        <PlaceholderButton label="步行导航" :height="52" />
+        <view class="btn btn--line h52 bar__nav" role="button" @tap="navToAlt">步行导航</view>
         <view class="btn btn--primary h52 bar__main" role="button" @tap="go({ page: 'queue', id: alt.id })">
           去{{ alt.name }}，到了开始{{ isCheckin(alt.waitMin) ? '打卡' : '排队' }}
         </view>
@@ -260,6 +270,9 @@ function toggleAlt(id: string) {
 .bar__row {
   display: flex;
   gap: r(8);
+}
+.bar__nav {
+  font-weight: 700;
 }
 .bar__main {
   flex-grow: 1;

@@ -1,8 +1,7 @@
 <script setup lang="ts">
 // V7 我的（Me.dc.html）
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import type { ThemeName } from '@qs/shared'
 import PlaceholderButton from '@/components/PlaceholderButton.vue'
 import StateView from '@/components/StateView.vue'
 import SwitchToggle from '@/components/SwitchToggle.vue'
@@ -11,6 +10,7 @@ import { useCollectionStore } from '@/stores/collection'
 import { useFeedbackStore } from '@/stores/feedback'
 import { usePersonaStore } from '@/stores/persona'
 import { usePrefsStore } from '@/stores/prefs'
+import type { ThemeMode } from '@/stores/theme'
 import { useTripStore } from '@/stores/trip'
 import type { AsyncStatus } from '@/utils/useAsync'
 import { go } from '@/utils/nav'
@@ -45,6 +45,17 @@ async function loadFeedbacks() {
 }
 onShow(loadFeedbacks)
 
+// 从地图「去开启」过来：高亮定位授权这一行 2 秒（14.2 11.1.4）
+const flash = ref(false)
+onShow(() => {
+  if (!prefs.flashLocation) return
+  prefs.flashLocation = false
+  flash.value = true
+  setTimeout(() => (flash.value = false), 2000)
+})
+// 开启定位后取消高亮
+watch(() => prefs.location, (on) => { if (on) flash.value = false })
+
 async function rate(id: string, r: 'good' | 'bad') {
   try {
     await rateFeedback(id, r)
@@ -58,12 +69,14 @@ const stampSlots = computed(() => Array.from({ length: collection.slots }, (_, i
 const tripText = computed(() => (trip.bookedSlot ? `观光车 ${trip.bookedSlot} 已预约 ›` : '还没有预约观光车 ›'))
 const couponText = computed(() => (collection.coupons.length ? `${collection.coupons.length} 张可用` : '暂无可用'))
 
-const themeOptions: { id: ThemeName; label: string }[] = [
+// 亮色 / 暗色 / 跟随系统（14.2 11.1.15）
+const themeOptions: { id: ThemeMode; label: string }[] = [
   { id: 'light', label: '亮色' },
   { id: 'dark', label: '暗色' },
+  { id: 'system', label: '跟随系统' },
 ]
-function setTheme(name: ThemeName) {
-  theme.set(name)
+function setTheme(mode: ThemeMode) {
+  theme.set(mode)
   sync()
 }
 </script>
@@ -101,7 +114,7 @@ function setTheme(name: ThemeName) {
             <view v-for="f in feedback.list" :key="f.id" class="fb">
               <view class="fb__head">
                 <text class="fb__text">{{ f.title }}</text>
-                <text :class="['fb__status', `fb__status--${f.status}`]">{{ f.status === 'resolved' ? '已解决' : '待受理' }}</text>
+                <text :class="['fb__status', `fb__status--${f.status}`]">{{ feedback.statusLabel(f) }}</text>
               </view>
               <text class="fb__note">#{{ f.id }} · {{ f.note }}</text>
               <template v-if="f.status === 'resolved'">
@@ -125,9 +138,9 @@ function setTheme(name: ThemeName) {
           <text class="set__label">安全与求助</text>
           <text class="set__value">同行人共享{{ prefs.share ? '已开启' : '未开启' }} ›</text>
         </view>
-        <view class="set">
+        <view class="set" role="link" @tap="go({ page: 'coupons' })">
           <text class="set__label">我的优惠券</text>
-          <text class="set__value">{{ couponText }}</text>
+          <text class="set__value">{{ couponText }} ›</text>
         </view>
         <view class="set">
           <text class="set__label">游览身份</text>
@@ -139,15 +152,14 @@ function setTheme(name: ThemeName) {
             <view
               v-for="o in themeOptions"
               :key="o.id"
-              :class="['appearance__item', { 'appearance__item--on': theme.name === o.id }]"
+              :class="['appearance__item', { 'appearance__item--on': theme.mode === o.id }]"
               role="radio"
-              :aria-checked="theme.name === o.id ? 'true' : 'false'"
+              :aria-checked="theme.mode === o.id ? 'true' : 'false'"
               @tap="setTheme(o.id)"
             >{{ o.label }}</view>
-            <PlaceholderButton shape="segment" label="跟随系统" />
           </view>
         </view>
-        <view class="set">
+        <view :class="['set', { 'set--flash': flash }]">
           <text class="set__label">定位授权</text>
           <SwitchToggle v-model="prefs.location" label="定位授权" />
         </view>
@@ -270,6 +282,10 @@ function setTheme(name: ThemeName) {
   background: var(--warn-soft);
   color: var(--warn-fg);
 }
+.fb__status--processing {
+  background: var(--primary-soft);
+  color: var(--primary-fg);
+}
 .fb__status--resolved {
   background: var(--ok-soft);
   color: var(--ok-fg);
@@ -300,6 +316,11 @@ function setTheme(name: ThemeName) {
   min-height: r(48);
   border-bottom: 1px solid var(--surface-muted);
   @include tappable;
+}
+.set--flash {
+  background: var(--warn-soft);
+  margin: 0 r(-16);
+  padding: 0 r(16);
 }
 .set--tall {
   min-height: r(52);

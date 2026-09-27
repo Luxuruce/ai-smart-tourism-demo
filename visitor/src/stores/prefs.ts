@@ -7,5 +7,7 @@ export const usePrefsStore = defineStore('prefs', {
     // 13.2 2.7：默认关闭；绑定同行人后才开启
     share: false,
     companion: null as string | null,
+    /** 从地图「去开启」过来时，高亮「我的」页的定位授权这一行 */
+    flashLocation: false,
   }),
 })

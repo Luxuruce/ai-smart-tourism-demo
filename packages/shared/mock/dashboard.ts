@@ -31,9 +31,9 @@ export const badRateTrend = {
 export const topQuestions: TopQuestion[] = [
   { rank: 1, text: '观光车在哪坐、几点有车', count: 312 },
   { rank: 2, text: '文昌阁要排多久', count: 268 },
-  { rank: 3, text: '夜游几点开始、要不要另买票', count: 205, flag: { text: '缺官方口径 · 待补', kind: 'gap' } },
+  { rank: 3, text: '夜游几点开始、要不要另买票', count: 205, flag: { text: '缺官方口径 · 待补', kind: 'gap' }, pendingId: 'k-night' },
   { rank: 4, text: '哪里有母婴室', count: 146 },
-  { rank: 5, text: '古戏台今天几点演出', count: 131, flag: { text: '缺演出排期 · 待补', kind: 'gap' } },
+  { rank: 5, text: '古戏台今天几点演出', count: 131, flag: { text: '缺演出排期 · 待补', kind: 'gap' }, pendingId: 'k-opera' },
   { rank: 6, text: '附近哪里吃饭', count: 118, flag: { text: '可接入商户券', kind: 'biz' } },
 ]
 

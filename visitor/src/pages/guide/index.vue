@@ -8,10 +8,11 @@ import Icon from '@/components/Icon.vue'
 import PlaceholderButton from '@/components/PlaceholderButton.vue'
 import StateView from '@/components/StateView.vue'
 import SwitchToggle from '@/components/SwitchToggle.vue'
-import { askFreeText, getGuideMeta, getNearbyNarration, getScenarios } from '@/services/guide'
+import { askFreeText, chipScenarioIds, getGuideMeta, getNearbyNarration, getScenarios } from '@/services/guide'
 import { useGuideFocusStore } from '@/stores/guideFocus'
 import { usePartyStore } from '@/stores/party'
 import { usePersonaStore } from '@/stores/persona'
+import { usePrefsStore } from '@/stores/prefs'
 import { go } from '@/utils/nav'
 import { useAsync } from '@/utils/useAsync'
 import { usePage } from '@/utils/usePage'
@@ -23,6 +24,7 @@ const { pageStyle } = usePage()
 const persona = usePersonaStore()
 const party = usePartyStore()
 const focus = useGuideFocusStore()
+const prefs = usePrefsStore()
 
 const meta = useAsync(getGuideMeta)
 const scenarios = useAsync(getScenarios)
@@ -34,9 +36,17 @@ const extra = ref<QaTurn[]>([])
 const input = ref('')
 const asking = ref(false)
 
-const turns = computed<QaTurn[]>(() => {
-  const s = scenarios.data.value?.find((x) => x.id === q.value)
-  return [...(s?.turns ?? []), ...extra.value]
+const current = computed(() => scenarios.data.value?.find((x) => x.id === q.value))
+const turns = computed<QaTurn[]>(() => [...(current.value?.turns ?? []), ...extra.value])
+/** 底部快捷问题只显示这些场景；机位追问场景不在其中，打开时不高亮任何快捷问题（14.1） */
+const chips = computed(() => (scenarios.data.value ?? []).filter((s) => chipScenarioIds.includes(s.id)))
+/** 机位追问场景在对话上方显示小标题（清单 12.2.1） */
+const spotTitle = computed(() => (current.value && !chipScenarioIds.includes(current.value.id) ? current.value.chip : ''))
+
+// 走近自动讲：未开启定位时置灰（14.2 11.2.2）
+const autoHint = computed(() => {
+  if (!prefs.location) return '需要开启定位'
+  return auto.value ? '走到讲解点 30 米内自动播放' : '已关闭，可手动点击收听'
 })
 
 // 带着问题打开：其他页面跳过来时直接显示指定场景（13.1 1.2）
@@ -107,8 +117,9 @@ const userText = (t: QaTurn) => (t.blocks[0]?.type === 'text' ? t.blocks[0].text
           <text class="near__story">{{ meta.data.value?.nearby.story ?? '' }} ›</text>
         </view>
         <text class="near__label">走近自动讲</text>
-        <SwitchToggle v-model="auto" label="走近讲解点时自动播放" />
+        <SwitchToggle v-model="auto" label="走近讲解点时自动播放" :disabled="!prefs.location" />
       </view>
+      <text class="auto-hint">{{ autoHint }}</text>
       <view v-if="playerOpen" class="mini" role="region" aria-label="讲解播放条">
         <StateView :status="narration.status.value" :rows="1" :row-height="48" :error="narration.error.value" @retry="narration.reload">
           <view v-if="version && narration.data.value" class="mini__body">
@@ -140,6 +151,7 @@ const userText = (t: QaTurn) => (t.blocks[0]?.type === 'text' ? t.blocks[0].text
       <text class="chat__persona">已知你的身份：{{ persona.label }} · {{ party.label }} · 今天</text>
       <StateView :status="scenarios.status.value" :rows="3" :row-height="72" empty-text="景区还没有配置可回答的问题" :error="scenarios.error.value" @retry="scenarios.reload">
         <view class="turns" aria-live="polite">
+          <text v-if="spotTitle" class="spot-title">{{ spotTitle }}</text>
           <template v-for="(t, i) in turns" :key="`${q}-${i}`">
             <view v-if="t.role === 'user'" class="bubble bubble--user">{{ userText(t) }}</view>
             <view v-else :class="['bubble', 'bubble--ai', { 'bubble--rich': isRich(t) }]">
@@ -181,7 +193,7 @@ const userText = (t: QaTurn) => (t.blocks[0]?.type === 'text' ? t.blocks[0].text
       <scroll-view scroll-x class="chips-scroll" :show-scrollbar="false">
         <view class="chips" role="radiogroup" aria-label="快捷问题">
           <view
-            v-for="s in scenarios.data.value ?? []"
+            v-for="s in chips"
             :key="s.id"
             :class="['qchip', { 'qchip--on': q === s.id }]"
             role="radio"
@@ -322,6 +334,18 @@ const userText = (t: QaTurn) => (t.blocks[0]?.type === 'text' ? t.blocks[0].text
   background: var(--primary-soft);
   color: var(--primary-fg);
   font-weight: 700;
+}
+.auto-hint {
+  align-self: flex-end;
+  margin-top: r(-6);
+  font-size: r(11);
+  color: var(--text-2);
+}
+.spot-title {
+  align-self: center;
+  font-size: r(12);
+  font-weight: 700;
+  color: var(--text-2);
 }
 .chat {
   padding: r(4) r(20) r(12);

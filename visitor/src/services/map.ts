@@ -1,5 +1,6 @@
 import {
-  CHECKIN_MAX_WAIT, HEAT_LABEL, SERVICE_TYPE_ORDER, SERVICE_TYPES, mapMeta, mockRequest, services, spots, waitText,
+  CHECKIN_MAX_WAIT, HEAT_LABEL, SERVICE_TYPE_ORDER, SERVICE_TYPES, WALK_METERS_PER_MIN, mapMeta, mockRequest, services,
+  spots, waitText, walkMinutes,
   type Heat, type ServicePoint,
 } from '@qs/shared'
 
@@ -40,4 +41,45 @@ export function focusTarget(id: string): { layer: 'scenic' } | { layer: 'service
 export function spotName(id: string): string | null {
   const all = [...spots, ...spots.flatMap((s) => s.alts ?? [])]
   return all.find((s) => s.id === id)?.name ?? null
+}
+
+// —— 步行导航（14.2 11.1.5、14.5）——
+
+export interface NavPlan {
+  targetId: string
+  name: string
+  kind: 'spot' | 'service'
+  from: { x: number; y: number }
+  to: { x: number; y: number }
+  meters: number
+  minutes: number
+  /** 到达后的操作 */
+  waitMin?: number
+}
+
+/**
+ * 计算导航路线。
+ * - 从地图出发：起点是「我的位置」，机位距离按坐标换算，设施用现有距离
+ * - 从机位详情导航到替代机位：起点是原机位，时间用替代机位描述里的步行分钟数，距离 = 分钟数 × 70 米
+ */
+export function planNav(targetId: string, fromSpotId?: string): NavPlan | null {
+  const origin = fromSpotId ? spots.find((s) => s.id === fromSpotId) : null
+  const alt = origin?.alts?.find((a) => a.id === targetId)
+  if (origin && alt) {
+    const onMap = spots.find((s) => s.id === alt.id)
+    const to = onMap ? { x: onMap.x, y: onMap.y } : { x: alt.x ?? origin.x, y: alt.y ?? origin.y }
+    return {
+      targetId, name: alt.name, kind: 'spot', from: { x: origin.x, y: origin.y }, to,
+      meters: alt.walkMin * WALK_METERS_PER_MIN, minutes: alt.walkMin, waitMin: alt.waitMin,
+    }
+  }
+  const spot = spots.find((s) => s.id === targetId)
+  const svc = services.find((s) => s.id === targetId)
+  const target = spot ?? svc
+  if (!target) return null
+  const meters = parseInt(target.distance ?? '0', 10)
+  return {
+    targetId, name: target.name, kind: spot ? 'spot' : 'service', from: { ...mapMeta.me }, to: { x: target.x, y: target.y },
+    meters, minutes: walkMinutes(meters), waitMin: spot?.waitMin,
+  }
 }

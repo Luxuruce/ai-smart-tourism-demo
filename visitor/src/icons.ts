@@ -31,7 +31,7 @@ export const icons = {
   globe: { body: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.5 2.5 14.5 0 17M12 3.5c-2.5 2.5-2.5 14.5 0 17"/>', colors: ['icon-disabled'] },
   message: { body: '<path d="M4 5h16v11H9l-5 4z"/>', strokeWidth: 2, colors: ['on-color'] },
   layers: { body: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>', colors: [T] },
-  locate: { body: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>', colors: ['icon-disabled'] },
+  locate: { body: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>', colors: ['icon-disabled', T] },
   back: { body: '<path d="M15 18l-6-6 6-6"/>', strokeWidth: 2, colors: [T, 'on-color'] },
   star: { body: '<path d="M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.7l5.4-.8z"/>', colors: ['icon-disabled'] },
   image: { body: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>', strokeWidth: 1.5, colors: ['text-2'] },

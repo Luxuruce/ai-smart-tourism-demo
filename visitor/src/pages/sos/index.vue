@@ -85,6 +85,13 @@ function confirmCancel() {
   })
 }
 
+// —— 值班室号码卡（14.2 11.1.16）：号码需景区提供，原型只复制不拨打 ——
+const dutyOpen = ref(false)
+function copyDuty() {
+  const phone = info.data.value?.duty.phone ?? ''
+  uni.setClipboardData({ data: phone, success: () => uni.showToast({ title: '已复制', icon: 'none' }), fail: () => {} })
+}
+
 // —— 同行人位置共享：默认关闭；没有同行人时先邀请绑定 ——
 const inviteOpen = ref(false)
 function toggleShare(on: boolean) {
@@ -254,7 +261,18 @@ function endSeek() {
       <view class="calls">
         <view class="btn btn--plain btn--grow h48 call" role="button" aria-label="拨打报警电话 110" @tap="call('110')">报警 110</view>
         <view class="btn btn--plain btn--grow h48 call" role="button" aria-label="拨打急救电话 120" @tap="call('120')">急救 120</view>
-        <PlaceholderButton label="值班室 · 待接入" aria-label="值班室电话" :height="48" extra-style="flex:1 1 0;" />
+        <view class="btn btn--plain btn--grow h48 call" role="button" aria-label="景区值班室电话" @tap="dutyOpen = true">值班室</view>
+      </view>
+
+      <view v-if="dutyOpen && info.data.value" class="duty-mask" @tap.self="dutyOpen = false">
+        <view class="duty" role="dialog" :aria-label="info.data.value.duty.title">
+          <text class="duty__title">{{ info.data.value.duty.title }}</text>
+          <text class="duty__phone">{{ info.data.value.duty.phone }}</text>
+          <view class="duty__actions">
+            <view class="btn btn--plain btn--grow h44 small" role="button" @tap="dutyOpen = false">关闭</view>
+            <view class="btn btn--primary btn--grow h44 small" role="button" @tap="copyDuty">复制号码</view>
+          </view>
+        </view>
       </view>
 
       <view class="to-feedback" role="link" @tap="go({ page: 'feedback' })">不紧急的问题（卫生、设施、价格）→ 一键反馈</view>
@@ -595,6 +613,43 @@ function endSeek() {
 .call {
   font-weight: 700;
   padding: 0 r(8);
+}
+.duty-mask {
+  position: fixed;
+  z-index: 50;
+  left: var(--frame-inset, 0px);
+  right: var(--frame-inset, 0px);
+  top: 0;
+  bottom: 0;
+  background: var(--scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 r(32);
+}
+.duty {
+  width: 100%;
+  padding: r(20);
+  border-radius: r(16);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: r(10);
+}
+.duty__title {
+  font-size: r(15);
+  color: var(--text-2);
+}
+.duty__phone {
+  font-size: r(24);
+  font-weight: 700;
+}
+.duty__actions {
+  width: 100%;
+  display: flex;
+  gap: r(8);
+  margin-top: r(6);
 }
 .to-feedback {
   font-size: r(13);

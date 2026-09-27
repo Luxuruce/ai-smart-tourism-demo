@@ -15,7 +15,9 @@ onLaunch((options) => {
   // #endif
   if (mode === 'empty' || mode === 'error') setMockMode(mode as MockMode)
 
-  useThemeStore().applyTabBar()
+  const theme = useThemeStore()
+  theme.listenSystem()
+  theme.applyTabBar()
 
   // #ifdef MP
   uni.loadFontFace({

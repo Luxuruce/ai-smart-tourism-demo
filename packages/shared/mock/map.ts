@@ -21,14 +21,15 @@ export const spots: Spot[] = [
     detail: '约 14 人排队 · 有 2 个同款但人少的替代机位 · 有讲解',
     queueCount: 14, bestLight: '15:00–16:30',
     alts: [
-      { id: 'kx', name: '魁星楼侧檐', desc: '同样的飞檐 + 远山构图 · 步行 3 分钟', heat: 'low', waitMin: 2 },
-      { id: 'yd', name: '文昌阁背面月洞门', desc: '框景构图，同一座阁楼 · 步行 2 分钟', heat: 'mid', waitMin: 8 },
+      { id: 'kx', name: '魁星楼侧檐', desc: '同样的飞檐 + 远山构图 · 步行 3 分钟', heat: 'low', waitMin: 2, walkMin: 3 },
+      // 不在地图上，坐标只在导航时作为终点（清单 12.3）
+      { id: 'yd', name: '文昌阁背面月洞门', desc: '框景构图，同一座阁楼 · 步行 2 分钟', heat: 'mid', waitMin: 8, walkMin: 2, x: 78, y: 128 },
     ],
   },
   {
     id: 'pf', name: '老街牌坊', short: '牌坊', heat: 'high', waitMin: 18, x: 250, y: 110, types: ['photo'], detail: '约 9 人排队 · 有 1 个同款替代机位', queueCount: 9,
     alts: [
-      { id: 'pf-w', name: '老街西口小牌楼', desc: '同样的石牌坊 + 老街纵深构图 · 步行 4 分钟', heat: 'low', waitMin: 2 },
+      { id: 'pf-w', name: '老街西口小牌楼', desc: '同样的石牌坊 + 老街纵深构图 · 步行 4 分钟', heat: 'low', waitMin: 2, walkMin: 4, x: 268, y: 92 },
     ],
   },
   { id: 'xt', name: '古戏台', short: '戏台', heat: 'mid', waitMin: 8, x: 170, y: 170, types: ['story'], detail: '14:30 有一场演出（示例）· 有讲解' },
@@ -56,7 +57,7 @@ export const services: ServicePoint[] = [
   { id: 'wc3', type: 'wc', name: '荷塘洗手间', x: 290, y: 282, distance: '260 米', detail: '当前约 3 人排队（示例）' },
   { id: 'bus1', type: 'bus', glyph: '票', name: '观光车售票点 · 南门', x: 118, y: 352, distance: '70 米', detail: '单程 [价格] · 首班 8:30 · 末班 17:00 · 下一班约 3 分钟（示例）' },
   { id: 'bus2', type: 'bus', name: '观光车站 · 文昌阁', x: 58, y: 196, distance: '300 米', detail: '可在此上下车 · 下一班约 8 分钟（示例）' },
-  { id: 'bus3', type: 'bus', name: '观光车站 · 魁星楼', x: 322, y: 150, distance: '420 米', detail: '可在此上下车 · 线路终点' },
+  { id: 'bus3', type: 'bus', name: '观光车站 · 魁星楼', x: 322, y: 150, distance: '420 米', detail: '可在此上下车 · 终点站，折返回南门' },
   { id: 'info', type: 'info', name: '游客中心', x: 222, y: 348, distance: '60 米', detail: '行李寄存、失物招领、轮椅与婴儿车租借' },
   { id: 'med', type: 'med', name: '医务室', x: 318, y: 336, distance: '150 米', detail: '位于游客中心东侧 · 开放时间 8:30–17:30（示例）' },
   { id: 'rest1', type: 'rest', name: '老街中段休息亭', x: 180, y: 120, distance: '180 米', detail: '有座椅和遮阳棚，旁边有茶铺' },
@@ -70,4 +71,19 @@ export const mapMeta = {
   updated: '热度更新于 3 分钟前 · 示例数据',
   /** 游客当前位置（地图上的蓝点） */
   me: { x: 175, y: 362 },
+}
+
+/** 步行速度：每分钟 70 米（14.2 11.1.5） */
+export const WALK_METERS_PER_MIN = 70
+/** 机位距离的换算比例：每像素 1.2 米，取整到 10 米（清单 12.3，只用于机位） */
+const METERS_PER_PX = 1.2
+
+for (const s of spots) {
+  const px = Math.hypot(s.x - mapMeta.me.x, s.y - mapMeta.me.y)
+  s.distance = `${Math.round((px * METERS_PER_PX) / 10) * 10} 米`
+}
+
+/** 步行分钟数：向上取整，最少 1 分钟 */
+export function walkMinutes(meters: number): number {
+  return Math.max(1, Math.ceil(meters / WALK_METERS_PER_MIN))
 }

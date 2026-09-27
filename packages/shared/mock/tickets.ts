@@ -22,6 +22,21 @@ export function ticketGroup(status: TicketStatus): 'pending' | 'processing' | 'r
 
 export const ticketOwners = ['值班主管', '[保洁 A]', '[安保 B]', '[运营 C]', '[市场巡查 D]']
 
+/** 从评论生成的工单编号，从 #1040 起递增（清单 12.3） */
+export const REVIEW_TICKET_START = 1040
+
+/** 按标签预填责任人（清单 12.2.5） */
+export function ownerOfTag(tag?: string): string {
+  switch (tag) {
+    case '卫生与设施': return '[保洁 A]'
+    case '排队与拥挤': return '[安保 B]'
+    case '讲解与内容':
+    case '动线与指引': return '[运营 C]'
+    case '价格与性价比': return '[市场巡查 D]'
+    default: return '值班主管'
+  }
+}
+
 // 提交时间按演示时钟 14:18 减去「用时」推算；已处理完的工单不推算，只记录节点
 export const tickets: Ticket[] = [
   {

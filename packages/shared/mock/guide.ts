@@ -1,5 +1,5 @@
 // 来源：Guide.dc.html
-import type { QaScenario } from '../types'
+import type { AnswerBlock, QaScenario, QaScenarioId } from '../types'
 
 export const guideMeta = {
   subtitle: '只根据景区审核过的资料回答，每条都注明依据',
@@ -151,3 +151,68 @@ export const qaScenarios: QaScenario[] = [
     ],
   },
 ]
+
+// —— 机位追问场景（附录 C.1）：一问一答，只能通过 q 参数打开，不出现在快捷问题里 ——
+
+type Item = { bold: string; text: string }
+
+function spotScenario(id: QaScenarioId, name: string, intro: string, items: Item[], spotId: string | null, basis: string): QaScenario {
+  const actions: AnswerBlock = spotId
+    ? { type: 'actions', items: [
+        { label: '看机位详情', kind: 'action', link: { page: 'spot', id: spotId } },
+        { label: '在地图上看', kind: 'ok', link: { page: 'map', focus: spotId } },
+      ] }
+    : { type: 'actions', items: [{ label: '在地图上看', kind: 'ok', link: { page: 'map' } }] }
+  return {
+    id,
+    chip: spotId ? `关于${name}` : '关于这里',
+    turns: [
+      user(spotId ? `关于${name}，还能问什么？` : '关于这里，还能问什么？'),
+      { role: 'ai', blocks: [{ type: 'text', text: intro }, { type: 'items', items }, actions], basis },
+    ],
+  }
+}
+
+const REVIEWED = '[《XX 镇志》第 X 页] · 景区知识库（已审核）'
+
+export const spotScenarios: QaScenario[] = [
+  spotScenario('paifang', '老街牌坊', '[示例回答] 关于老街牌坊，游客最常问这三件事：', [
+    { bold: '表彰的是谁？', text: '牌坊正中的题字记录了受表彰的人和事，具体人物以镇志为准。' },
+    { bold: '怎么拍？', text: '站在老街中段往回拍，能把牌坊和老街纵深一起框进画面。' },
+    { bold: '有什么小任务？', text: '数一数牌坊有几个门洞，答对可以集「坊」章。' },
+  ], 'pf', REVIEWED),
+  spotScenario('xitai', '古戏台', '[示例回答] 关于古戏台，游客最常问这三件事：', [
+    { bold: '什么时候有演出？', text: '今天 14:30 一场，夜游时 19:30 有夜场（示例），以景区公告为准。' },
+    { bold: '为什么对着祠堂？', text: '戏既唱给乡亲，也唱给祖先，所以戏台和祠堂相对。' },
+    { bold: '有什么小任务？', text: '找一找台口两侧柱子上挂着什么，答对可以集「台」章。' },
+  ], 'xt', REVIEWED),
+  spotScenario('kuixing', '魁星楼', '[示例回答] 关于魁星楼，游客最常问这三件事：', [
+    { bold: '魁星是谁？', text: '古人心中主管文运的神，一手执笔、一脚踩鳌头。' },
+    { bold: '怎么拍？', text: '侧檐 + 远山是文昌阁的同款构图，几乎不用排队。' },
+    { bold: '有什么小任务？', text: '看看魁星像的脚踩着什么，答对可以集「楼」章。' },
+  ], 'kx', REVIEWED),
+  // 第 1 条资料里暂无考据，依据行按规则 R0-4 写「未收录」
+  spotScenario('gongqiao', '石拱桥', '[示例回答] 关于石拱桥，游客最常问这三件事：', [
+    { bold: '建了多少年？', text: '具体年代待景区资料补充，我不乱说。' },
+    { bold: '怎么拍？', text: '傍晚逆光最好，站在下游的岸边拍桥拱倒影。' },
+    { bold: '有什么小任务？', text: '数一数桥有几个拱，答对可以集「桥」章。' },
+  ], 'gq', '景区知识库未收录（已提交补充）'),
+  spotScenario('town', '', '[示例回答] 关于这里，游客最常问这三件事：', [
+    { bold: '古镇为什么叫「青石」？', text: '老街全部铺着青石板，雨后发亮，古镇因此得名。' },
+    { bold: '哪里人少？', text: '打开地图看各机位的等待时间，绿色的地方人少。' },
+    { bold: '遇到问题怎么办？', text: '点右下角「反馈」，一句话告诉景区，通常 15 分钟内有人处理。' },
+  ], null, REVIEWED),
+]
+
+/** 机位 → 追问场景；没有专属场景的机位用 town（附录 C.1） */
+export const SPOT_SCENARIO: Record<string, QaScenarioId> = {
+  wc: 'history',
+  zy: 'zhuangyuan',
+  pf: 'paifang',
+  xt: 'xitai',
+  kx: 'kuixing',
+  gq: 'gongqiao',
+}
+
+export const scenarioOfSpot = (spotId: string): QaScenarioId => SPOT_SCENARIO[spotId] ?? 'town'
+

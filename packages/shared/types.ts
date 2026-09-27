@@ -5,7 +5,7 @@ export type Heat = 'low' | 'mid' | 'high'
 /** 游客端页面名，对应 pages/{name}/index */
 export type PageName =
   | 'home' | 'map' | 'trip' | 'guide' | 'me'
-  | 'spot' | 'queue' | 'feedback' | 'sos'
+  | 'spot' | 'queue' | 'feedback' | 'sos' | 'coupons'
 
 /**
  * 页面跳转目标。
@@ -45,6 +45,8 @@ export interface Spot {
   alts?: AltSpot[]
   bestLight?: string
   queueCount?: number
+  /** 到「我的位置」的距离，如「270 米」（由坐标换算，14.5） */
+  distance?: string
 }
 
 /**
@@ -57,6 +59,11 @@ export interface AltSpot {
   desc: string
   heat: Heat
   waitMin: number
+  /** 从原机位步行过去的分钟数（导航时用，14.5） */
+  walkMin: number
+  /** 不在地图上的替代机位：导航终点坐标，平时不显示 */
+  x?: number
+  y?: number
 }
 
 export type ServiceType = 'wc' | 'bus' | 'info' | 'med' | 'rest' | 'park'
@@ -178,7 +185,10 @@ export interface QaTurn {
   basis?: string
 }
 
-export type QaScenarioId = 'history' | 'zhuangyuan' | 'photo' | 'night' | 'elder' | 'shop'
+export type QaScenarioId =
+  | 'history' | 'zhuangyuan' | 'photo' | 'night' | 'elder' | 'shop'
+  // 机位追问场景，只能通过 q 参数打开，不出现在快捷问题里（14.1）
+  | 'paifang' | 'xitai' | 'kuixing' | 'gongqiao' | 'town'
 
 export interface QaScenario {
   id: QaScenarioId
@@ -219,6 +229,7 @@ export interface BusInfo {
   fairness: string
   /** 夜游行程下观光车 tab 的停运说明 */
   nightNotice: string
+  elderReturnNote: string
   phone: string
   defaultSlot: string
   maxSeats: number
@@ -227,7 +238,7 @@ export interface BusInfo {
   slots: BusSlot[]
 }
 
-export type FeedbackStatus = 'pending' | 'resolved'
+export type FeedbackStatus = 'pending' | 'processing' | 'resolved'
 
 /** 游客端「我的反馈」里的一条 */
 export interface VisitorFeedback {
@@ -237,6 +248,8 @@ export interface VisitorFeedback {
   text: string
   status: FeedbackStatus
   note: string
+  /** AI 识别的分类，决定处理进度的文案 */
+  category?: string
   /** 已解决的工单，游客评价结果 */
   rating?: 'good' | 'bad'
 }
@@ -301,11 +314,63 @@ export interface Review {
   text: string
 }
 
+/** 评论明细里的一条评论（附录 C.3） */
+export interface ReviewItem extends Review {
+  id: string
+  /** 点位：机位 id，或没有 id 的区域名称 */
+  spot: string
+  tags: string[]
+  replied: boolean
+  reply?: string
+  /** AI 标签被人工修正过 */
+  tagsEdited?: boolean
+}
+
+export interface Coupon {
+  id: string
+  merchant: string
+  title: string
+  threshold: string
+  expiry: string
+  code: string
+  redeem: string
+  status: 'active' | 'used' | 'expired'
+}
+
+/** 知识库「待补问题」（附录 C.4） */
+export interface PendingQuestion {
+  id: string
+  text: string
+  count: number
+  lastAsked: string
+  source: 'AI 导游' | '游客在问什么'
+  /** 补录后生成的知识条目所属点位（清单 12.2.6） */
+  spot: string
+}
+
+export type KnowledgeStatus = 'published' | 'pending' | 'rejected' | 'reviewing'
+
+export interface KnowledgeEntry {
+  id: string
+  title: string
+  spot: string
+  source: string
+  status: KnowledgeStatus
+  reviewer?: string
+  date?: string
+  note?: string
+  /** 含年代、人物、数字的条目需要重点审核（PRD S0-2） */
+  keyReview: boolean
+  answer?: string
+}
+
 export interface TopQuestion {
   rank: number
   text: string
   count: number
   flag?: { text: string; kind: 'gap' | 'biz' }
+  /** 带「待补」标记的问题对应知识库里的待补问题 id */
+  pendingId?: string
 }
 
 export interface TrendPoint {
