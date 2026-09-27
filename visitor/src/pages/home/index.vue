@@ -9,7 +9,6 @@ import StateView from '@/components/StateView.vue'
 import FabFeedback from '@/components/FabFeedback.vue'
 import { getHomeInfo, getPersonas, getRecommendations } from '@/services/home'
 import { usePersonaStore } from '@/stores/persona'
-import { useTripStore } from '@/stores/trip'
 import { go } from '@/utils/nav'
 import { useAsync } from '@/utils/useAsync'
 import { usePage } from '@/utils/usePage'
@@ -19,7 +18,6 @@ import { usePage } from '@/utils/usePage'
 defineOptions({ inheritAttrs: false })
 const { theme, pageStyle, sync } = usePage(true)
 const persona = usePersonaStore()
-const trip = useTripStore()
 
 const info = useAsync(getHomeInfo)
 const personas = useAsync(getPersonas)
@@ -39,29 +37,21 @@ interface GridItem {
   /** 没有图标时显示的文字（WC） */
   glyph?: string
   route: Route
-  busTab?: boolean
 }
 
 const grid: GridItem[] = [
   { label: '机位热度', bg: 'heat-high-soft', icon: 'pin', color: 'danger-fg', route: { page: 'map' } },
   { label: '问 AI', bg: 'ok-soft', icon: 'chat-dots', color: 'ok-fg', route: { page: 'guide' } },
-  { label: 'AI 行程', bg: 'primary-soft', icon: 'route', color: 'primary-fg', route: { page: 'trip' } },
-  { label: '约观光车', bg: 'primary-soft', icon: 'bus', color: 'primary-fg', route: { page: 'trip' }, busTab: true },
+  { label: 'AI 行程', bg: 'primary-soft', icon: 'route', color: 'primary-fg', route: { page: 'trip', tripTab: 'plan' } },
+  { label: '约观光车', bg: 'primary-soft', icon: 'bus', color: 'primary-fg', route: { page: 'trip', tripTab: 'bus' } },
   { label: '安全求助', bg: 'danger-soft', icon: 'shield-plus', color: 'danger-fg', route: { page: 'sos' } },
-  { label: '研学任务', bg: 'warn-soft', icon: 'book', color: 'warn-fg', route: { page: 'queue', id: 'wc' } },
+  // 研学入口改去文昌阁机位详情，不再直接进入排队页（13.1 1.3）
+  { label: '研学任务', bg: 'warn-soft', icon: 'book', color: 'warn-fg', route: { page: 'spot', id: 'wc' } },
   { label: '厕所服务点', bg: 'ink-chip', glyph: 'WC', route: { page: 'map', focus: 'wc1' } },
   { label: '一键反馈', bg: 'surface-muted', icon: 'report', color: 'text', route: { page: 'feedback' } },
 ]
 
-function openGrid(item: GridItem) {
-  trip.openTab(item.busTab ? 'bus' : 'plan')
-  go(item.route)
-}
-
-function openTrip() {
-  trip.openTab('plan')
-  go({ page: 'trip' })
-}
+const openTrip = () => go({ page: 'trip', tripTab: 'plan' })
 </script>
 
 <template>
@@ -127,7 +117,7 @@ function openTrip() {
       </view>
 
       <view class="grid">
-        <view v-for="g in grid" :key="g.label" class="tile" role="link" @tap="openGrid(g)">
+        <view v-for="g in grid" :key="g.label" class="tile" role="link" @tap="go(g.route)">
           <view class="tile__icon" :style="`background: var(--${g.bg})`">
             <Icon v-if="g.icon && g.color" :name="g.icon" :color="g.color" :size="22" />
             <text v-else class="tile__glyph">{{ g.glyph }}</text>

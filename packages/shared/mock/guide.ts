@@ -3,8 +3,8 @@ import type { QaScenario } from '../types'
 
 export const guideMeta = {
   subtitle: '只根据景区审核过的资料回答，每条都注明依据',
-  nearby: { spot: '文昌阁', story: '听「飞檐为什么翘起来」· 1:15 ›' },
-  companions: '2 人同行 · 今天',
+  /** 附近讲解条：点击后在本页展开迷你播放条（13.1 1.4），讲解内容取文昌阁的等待填充 */
+  nearby: { spotId: 'wc', spot: '文昌阁', story: '听「飞檐为什么翘起来」· 1:15' },
   placeholderReply: '（原型演示）请点击下方快捷问题体验',
 }
 
@@ -28,8 +28,33 @@ export const qaScenarios: QaScenario[] = [
         blocks: [
           { type: 'text', text: '这个问题景区资料里暂无考据，我不乱说。你可以去状元祠看看，那里有本镇历代读书人的故事。' },
           { type: 'link', label: '在地图上看状元祠 ›', link: { page: 'map', focus: 'zy' } },
-          { type: 'meta', text: '已记录为「待补充」问题，景区补充资料后会更新' },
         ],
+        // 13.2 2.1：资料里没有的也显示依据行，原来的「已记录为待补充」合并进来
+        basis: '景区知识库未收录（已提交补充）',
+      },
+    ],
+  },
+  {
+    // 附录 B.2
+    id: 'zhuangyuan',
+    chip: '状元祠的故事',
+    turns: [
+      user('状元祠讲的是什么故事？'),
+      {
+        role: 'ai',
+        blocks: [
+          { type: 'text', text: '[示例回答] 状元祠纪念的是本镇历代读书人。可以带着这三个问题去看：' },
+          { type: 'items', items: [
+            { bold: '1. 科举有多难？', text: '祠内展板讲了从县试到殿试要考多少轮。' },
+            { bold: '2. 门口的旗杆石是做什么的？', text: '过去考中功名的人家，才能在门前竖旗杆。' },
+            { bold: '3. 适合孩子吗？', text: '适合，这里有 2 个观察小任务，完成可集「祠」章。' },
+          ] },
+          { type: 'actions', items: [
+            { label: '在地图上看状元祠', kind: 'action', link: { page: 'map', focus: 'zy' } },
+            { label: '看亲子研学路线', kind: 'ok', link: { page: 'trip', persona: 'family', tripTab: 'plan' } },
+          ] },
+        ],
+        basis: '[《XX 镇志》第 X 页] · 景区知识库（已审核）',
       },
     ],
   },
@@ -48,7 +73,7 @@ export const qaScenarios: QaScenario[] = [
           ] },
           { type: 'actions', items: [
             { label: '看替代机位', kind: 'action', link: { page: 'spot', id: 'wc' } },
-            { label: '15:30 再来', kind: 'ok', link: { page: 'trip' } },
+            { label: '15:30 再来', kind: 'ok', link: { page: 'trip', tripTab: 'plan' } },
           ] },
         ],
         basis: '机位热度（游客匿名上报）· 机位库（踏勘拍摄）',
@@ -72,7 +97,7 @@ export const qaScenarios: QaScenario[] = [
           ] },
           { type: 'notice', text: '夜游开放时间、是否另购票以景区公告为准 [待景区确认]。天气变差我会第一时间提醒你。' },
           { type: 'actions', items: [
-            { label: '生成完整行程', kind: 'action', link: { page: 'trip' } },
+            { label: '生成完整行程', kind: 'action', link: { page: 'trip', persona: 'night', tripTab: 'plan' } },
             { label: '夜游安全提示', kind: 'ok', link: { page: 'sos' } },
           ] },
         ],
@@ -95,8 +120,8 @@ export const qaScenarios: QaScenario[] = [
             { text: '· 古戏台有座位区；沿途休息点、无障碍洗手间和医务室都标在地图上' },
           ] },
           { type: 'actions', items: [
-            { label: '帮我约观光车', kind: 'action', link: { page: 'trip' } },
-            { label: '查看休息点', kind: 'ok', link: { page: 'map' } },
+            { label: '帮我约观光车', kind: 'action', link: { page: 'trip', persona: 'elder', tripTab: 'bus' } },
+            { label: '查看休息点', kind: 'ok', link: { page: 'map', focus: 'rest1' } },
           ] },
         ],
         basis: '观光车运营规则 · 实时余位 · 服务设施台账。以现场通知为准。',

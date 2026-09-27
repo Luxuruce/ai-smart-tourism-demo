@@ -1,5 +1,8 @@
 import type { PageName, Route } from '@qs/shared'
+import { useGuideFocusStore } from '@/stores/guideFocus'
 import { useMapFocusStore } from '@/stores/mapFocus'
+import { usePersonaStore } from '@/stores/persona'
+import { useTripStore } from '@/stores/trip'
 
 const TAB_PAGES: PageName[] = ['home', 'map', 'trip', 'guide', 'me']
 /** 小程序页面栈上限是 10 层，接近上限时改用 redirectTo */
@@ -9,12 +12,18 @@ export const isTabPage = (page: PageName) => TAB_PAGES.includes(page)
 
 export function go(route: Route) {
   const path = `/pages/${route.page}/index`
+  // tab 页不能带参数，先把要传的状态写进 store
   if (route.focus) useMapFocusStore().request(route.focus)
+  if (route.q) useGuideFocusStore().request(route.q)
+  if (route.persona) usePersonaStore().pick(route.persona)
+  if (route.tripTab) useTripStore().openTab(route.tripTab)
   if (isTabPage(route.page)) {
     uni.switchTab({ url: path })
     return
   }
-  const url = route.id ? `${path}?id=${encodeURIComponent(route.id)}` : path
+  const params = { ...(route.id ? { id: route.id } : {}), ...route.query }
+  const qs = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
+  const url = qs ? `${path}?${qs}` : path
   if (getCurrentPages().length >= STACK_LIMIT) uni.redirectTo({ url })
   else uni.navigateTo({ url })
 }

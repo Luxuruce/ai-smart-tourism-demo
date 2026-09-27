@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// V9 安全与求助（SOS.dc.html）
-import { ref } from 'vue'
+// V9 安全与求助（SOS.dc.html + 交接文档 v1.1 13.2 2.4/2.5/2.7）
+import { computed, onUnmounted, ref } from 'vue'
 import Icon from '@/components/Icon.vue'
 import PlaceholderButton from '@/components/PlaceholderButton.vue'
 import StateView from '@/components/StateView.vue'
@@ -11,7 +11,6 @@ import { back, call, go } from '@/utils/nav'
 import { useAsync } from '@/utils/useAsync'
 import { usePage } from '@/utils/usePage'
 
-
 // 页面参数不作为属性透传到根节点
 defineOptions({ inheritAttrs: false })
 const { pageStyle } = usePage()
@@ -19,7 +18,6 @@ const prefs = usePrefsStore()
 const info = useAsync(getSosInfo, { isEmpty: () => false })
 
 const sent = ref(false)
-const seeking = ref(false)
 const busy = ref(false)
 
 async function run(action: () => Promise<unknown>, after: () => void) {
@@ -33,6 +31,88 @@ async function run(action: () => Promise<unknown>, after: () => void) {
   } finally {
     busy.value = false
   }
+}
+
+// —— 一键求助：长按 2 秒发送，外圈显示进度；中途松手不发送（防误触）——
+const HOLD_MS = computed(() => info.data.value?.holdMs ?? 2000)
+const holdProgress = ref(0)
+let holdTimer: ReturnType<typeof setInterval> | null = null
+let holdStart = 0
+/** 触屏设备松手后浏览器还会补发 mouse 事件，这段时间内忽略 */
+let lastTouch = 0
+
+function stopHold() {
+  if (holdTimer) clearInterval(holdTimer)
+  holdTimer = null
+}
+function pressStart(isTouch: boolean) {
+  if (!isTouch && Date.now() - lastTouch < 800) return
+  if (isTouch) lastTouch = Date.now()
+  if (sent.value || busy.value || holdTimer) return
+  cancelledNotice.value = false
+  holdStart = Date.now()
+  holdProgress.value = 0
+  holdTimer = setInterval(() => {
+    holdProgress.value = Math.min(1, (Date.now() - holdStart) / HOLD_MS.value)
+    if (holdProgress.value >= 1) {
+      stopHold()
+      run(sendSos, () => (sent.value = true))
+      holdProgress.value = 0
+    }
+  }, 50)
+}
+function pressEnd(isTouch: boolean) {
+  if (!isTouch && Date.now() - lastTouch < 800) return
+  if (isTouch) lastTouch = Date.now()
+  if (!holdTimer) return
+  stopHold()
+  holdProgress.value = 0
+  uni.showToast({ title: info.data.value?.holdHint ?? '按住 2 秒发送求助', icon: 'none' })
+}
+onUnmounted(stopHold)
+const ringStyle = computed(() => `--p:${holdProgress.value}`)
+
+// —— 取消求助：原因可选，确认后值班室会回电 ——
+const cancelOpen = ref(false)
+const cancelReason = ref<string | null>(null)
+const cancelledNotice = ref(false)
+function confirmCancel() {
+  run(cancelSos, () => {
+    sent.value = false
+    cancelOpen.value = false
+    cancelReason.value = null
+    cancelledNotice.value = true
+  })
+}
+
+// —— 同行人位置共享：默认关闭；没有同行人时先邀请绑定 ——
+const inviteOpen = ref(false)
+function toggleShare(on: boolean) {
+  if (on && !prefs.companion) {
+    inviteOpen.value = true
+    return
+  }
+  prefs.share = on
+}
+/** 原型阶段模拟：点「分享给同行人」即视为对方已打开卡片、完成绑定 */
+function shareToCompanion() {
+  prefs.companion = info.data.value?.share.companion ?? '[同行人 A]'
+  prefs.share = true
+  inviteOpen.value = false
+}
+
+// —— 寻人：先填表（称呼必填），发起后可结束 ——
+type SeekState = 'idle' | 'form' | 'seeking' | 'ended'
+const seek = ref<SeekState>('idle')
+const seekForm = ref({ name: '', age: '', clothes: '' })
+const canSeek = computed(() => seekForm.value.name.trim().length > 0)
+function startSeek() {
+  if (!canSeek.value) return
+  run(startSeeking, () => (seek.value = 'seeking'))
+}
+function endSeek() {
+  seek.value = 'ended'
+  seekForm.value = { name: '', age: '', clothes: '' }
 }
 </script>
 
@@ -57,14 +137,47 @@ async function run(action: () => Promise<unknown>, after: () => void) {
 
       <view class="card sos">
         <view v-if="!sent" class="sos__idle">
-          <view class="sos__btn" role="button" aria-label="一键求助，发送位置给景区值班室" @tap="run(sendSos, () => (sent = true))">一键求助</view>
+          <view class="sos__ring" :style="ringStyle">
+            <view
+              class="sos__btn"
+              role="button"
+              aria-label="一键求助：按住 2 秒，发送位置给景区值班室"
+              @touchstart="pressStart(true)"
+              @touchend="pressEnd(true)"
+              @touchcancel="pressEnd(true)"
+              @mousedown="pressStart(false)"
+              @mouseup="pressEnd(false)"
+              @mouseleave="pressEnd(false)"
+            >
+              <text>一键求助</text>
+              <text class="sos__btn-sub">按住 2 秒</text>
+            </view>
+          </view>
           <view class="sos__hint"><text>会把你的位置和同行人信息</text><text>发送给景区值班室</text></view>
+          <text v-if="cancelledNotice" class="sos__cancelled" role="status">{{ info.data.value?.cancelled }}</text>
         </view>
         <view v-else class="sos__sent" role="status">
           <view class="sos__check"><Icon name="check" color="ok-fg" :size="30" /></view>
           <text class="sos__title">景区值班室已收到</text>
           <view class="sos__desc"><text>{{ info.data.value?.received }}</text><text>请留在原地，保持手机畅通。</text></view>
-          <view class="btn btn--plain h40 sos__cancel" role="button" @tap="run(cancelSos, () => (sent = false))">取消求助</view>
+          <view v-if="!cancelOpen" class="btn btn--plain h40 sos__cancel" role="button" @tap="cancelOpen = true">取消求助</view>
+          <view v-else class="reason" role="group" aria-label="取消原因（可不选）">
+            <text class="reason__title">取消原因（可不选）</text>
+            <view class="reason__chips">
+              <view
+                v-for="r in info.data.value?.cancelReasons ?? []"
+                :key="r"
+                :class="['reason__chip', { 'reason__chip--on': cancelReason === r }]"
+                role="radio"
+                :aria-checked="cancelReason === r ? 'true' : 'false'"
+                @tap="cancelReason = cancelReason === r ? null : r"
+              >{{ r }}</view>
+            </view>
+            <view class="reason__actions">
+              <view class="btn btn--plain btn--grow h40 small" role="button" @tap="cancelOpen = false">不取消</view>
+              <view class="btn btn--danger btn--grow h40 small" role="button" @tap="confirmCancel">确认取消</view>
+            </view>
+          </view>
         </view>
         <view class="sos__facts">
           <view class="fact">
@@ -82,12 +195,42 @@ async function run(action: () => Promise<unknown>, after: () => void) {
         <view class="share__row">
           <view class="share__text">
             <text class="share__title">同行人位置共享</text>
-            <text class="share__sub">走远 200 米或 15 分钟不动，会提醒对方</text>
+            <text class="share__sub">{{ info.data.value?.share.desc }}</text>
           </view>
-          <SwitchToggle v-model="prefs.share" label="同行人位置共享" />
+          <SwitchToggle :model-value="prefs.share" label="同行人位置共享" @update:model-value="toggleShare" />
         </view>
-        <view v-if="!seeking" class="btn h44 seek" role="button" @tap="run(startSeeking, () => (seeking = true))">孩子或同伴走散了？发起寻人</view>
-        <text v-else class="seeking" role="status">{{ info.data.value?.seeking }}</text>
+        <text v-if="prefs.companion" class="share__bound" role="status">{{ prefs.companion }} 已加入</text>
+        <view v-if="inviteOpen" class="invite" role="dialog" aria-label="邀请同行人">
+          <text class="invite__text">{{ info.data.value?.share.invite }}</text>
+          <view class="invite__actions">
+            <view class="btn btn--plain btn--grow h40 small" role="button" @tap="inviteOpen = false">以后再说</view>
+            <view class="btn btn--primary btn--grow h40 small" role="button" @tap="shareToCompanion">分享给同行人</view>
+          </view>
+        </view>
+
+        <view v-if="seek === 'idle' || seek === 'ended'" class="seek-start">
+          <text v-if="seek === 'ended'" class="seek-ended" role="status">{{ info.data.value?.seekEnded }}</text>
+          <view class="btn h44 seek" role="button" @tap="seek = 'form'">孩子或同伴走散了？发起寻人</view>
+        </view>
+        <view v-else-if="seek === 'form'" class="seek-form" role="form" aria-label="寻人信息">
+          <input v-model="seekForm.name" class="field" :placeholder="info.data.value?.seekFields.name" placeholder-class="field__ph" aria-label="走失者称呼（必填）" />
+          <input v-model="seekForm.age" class="field" type="number" :placeholder="info.data.value?.seekFields.age" placeholder-class="field__ph" aria-label="年龄" />
+          <input v-model="seekForm.clothes" class="field" :placeholder="info.data.value?.seekFields.clothes" placeholder-class="field__ph" aria-label="衣着描述" />
+          <PlaceholderButton icon="camera" label="添加照片（可选）" />
+          <view class="seek-form__actions">
+            <view class="btn btn--plain btn--grow h44 small" role="button" @tap="seek = 'idle'">取消</view>
+            <view
+              :class="['btn', 'btn--danger', 'btn--grow', 'h44', { 'seek-form__go--off': !canSeek }]"
+              role="button"
+              :aria-disabled="canSeek ? 'false' : 'true'"
+              @tap="startSeek"
+            >立即发起寻人</view>
+          </view>
+        </view>
+        <view v-else class="seeking-box">
+          <text class="seeking" role="status">{{ info.data.value?.seeking }}</text>
+          <view class="btn btn--outline h44" role="button" @tap="endSeek">已找到，结束寻人</view>
+        </view>
       </view>
 
       <view class="card nearest">
@@ -195,19 +338,121 @@ async function run(action: () => Promise<unknown>, after: () => void) {
 .sos__sent {
   gap: r(8);
 }
-.sos__btn {
+.sos__ring {
+  // 外圈即原型的 8px 浅色描边；按住时用进度填满
+  --p: 0;
   width: r(132);
   height: r(132);
-  border-radius: r(66);
-  border: r(8) solid var(--danger-soft);
+  border-radius: 50%;
+  padding: r(8);
+  box-sizing: border-box;
+  background: conic-gradient(var(--danger-fg) calc(var(--p) * 1turn), var(--danger-soft) 0);
+}
+.sos__btn {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
   background: var(--danger);
   color: var(--on-color);
   font-size: r(20);
   font-weight: 700;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   @include tappable;
+}
+.sos__btn-sub {
+  font-size: r(11);
+  font-weight: 400;
+  opacity: 0.85;
+}
+.sos__cancelled {
+  font-size: r(13);
+  color: var(--ok-fg);
+}
+.reason {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: r(10);
+}
+.reason__title {
+  font-size: r(13);
+  color: var(--text-2);
+}
+.reason__chips {
+  display: flex;
+  gap: r(8);
+  justify-content: center;
+}
+.reason__chip {
+  @include pill(36);
+  @include tappable;
+  padding: 0 r(14);
+  font-size: r(13);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+.reason__chip--on {
+  border-color: var(--primary-fg);
+  background: var(--primary-soft);
+  color: var(--primary-fg);
+  font-weight: 700;
+}
+.reason__actions,
+.invite__actions,
+.seek-form__actions {
+  display: flex;
+  gap: r(8);
+}
+.small {
+  font-size: r(13);
+}
+.share__bound {
+  font-size: r(13);
+  color: var(--ok-fg);
+}
+.invite {
+  padding: r(12);
+  border-radius: r(10);
+  background: var(--primary-soft);
+  display: flex;
+  flex-direction: column;
+  gap: r(10);
+}
+.invite__text {
+  font-size: r(13);
+  line-height: 1.6;
+}
+.seek-start,
+.seeking-box,
+.seek-form {
+  display: flex;
+  flex-direction: column;
+  gap: r(10);
+}
+.seek-ended {
+  font-size: r(13);
+  color: var(--text-2);
+}
+.field {
+  height: r(44);
+  padding: 0 r(14);
+  border-radius: r(10);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: r(14);
+  color: var(--text);
+}
+:deep(.field__ph) {
+  color: var(--text-disabled);
+}
+.seek-form__go--off {
+  opacity: 0.5;
 }
 .sos__hint,
 .sos__desc {

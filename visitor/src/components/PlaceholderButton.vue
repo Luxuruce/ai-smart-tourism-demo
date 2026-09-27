@@ -44,7 +44,7 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
     </template>
     <template v-else>
       <Icon v-if="icon" :name="icon" color="icon-disabled" :size="20" />
-      <text v-if="label">{{ label }}</text>
+      <text v-if="label" class="ph__label">{{ label }}</text>
       <text v-if="tag" class="ph__tag">即将上线</text>
     </template>
   </view>
@@ -72,6 +72,10 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
   padding: 0;
   background: var(--surface);
   flex-shrink: 0;
+}
+// uni-app H5 的 <text> 自带 white-space: pre-line，要在文字元素本身上设置
+.ph__label {
+  white-space: nowrap;
 }
 .ph--strong {
   border-color: var(--border-dashed-strong);

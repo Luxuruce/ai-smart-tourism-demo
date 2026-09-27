@@ -1,28 +1,49 @@
 <script setup lang="ts">
-// V6 一键反馈（Feedback.dc.html）
-import { ref, watch } from 'vue'
+// V6 一键反馈（Feedback.dc.html + 交接文档 v1.1 13.4 4.1/4.4、附录 B.6）
+import { computed, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import type { VisitorFeedback } from '@qs/shared'
 import Icon from '@/components/Icon.vue'
+import PlaceholderButton from '@/components/PlaceholderButton.vue'
 import StateView from '@/components/StateView.vue'
-import { getDraft, getMyFeedbacks, getProgress, submitFeedback } from '@/services/feedback'
+import {
+  categories, classify, getForm, getMyFeedbacks, getProgress, safetyCategory, submitFeedback,
+} from '@/services/feedback'
+import { spotName } from '@/services/map'
 import { useFeedbackStore } from '@/stores/feedback'
 import { back, go } from '@/utils/nav'
 import { useAsync } from '@/utils/useAsync'
 import { usePage } from '@/utils/usePage'
 
-
 // 页面参数不作为属性透传到根节点
 defineOptions({ inheritAttrs: false })
+
 const { pageStyle } = usePage()
 const store = useFeedbackStore()
 
-const draft = useAsync(getDraft)
+const form = useAsync(getForm, { isEmpty: () => false })
 const progress = useAsync(getProgress)
+
+/** 从排队页「反馈问题」「不太好」进入时，带着来源和机位 */
+const fromSpot = ref<string | null>(null)
+onLoad((query) => {
+  if (query?.from === 'queue' && query.spot) fromSpot.value = spotName(String(query.spot))
+})
+
+// 文本框为空，只显示提示文字（13.4 4.4）
 const text = ref('')
-// 文本框预填示例
-watch(() => draft.data.value, (d) => {
-  if (d && !text.value) text.value = d.text
-}, { immediate: true })
+const placeholder = computed(() => (fromSpot.value ? form.data.value?.queuePlaceholder : form.data.value?.placeholder) ?? '')
+const location = computed(() => (fromSpot.value ? `${fromSpot.value}（来自排队页）` : form.data.value?.location ?? ''))
+
+// AI 识别：输入后按关键词规则识别；「修改」后以游客的选择为准
+const manualCategory = ref<string | null>(null)
+const category = computed(() => manualCategory.value ?? (text.value.trim() ? classify(text.value) : null))
+const isSafety = computed(() => category.value === safetyCategory)
+const sheetOpen = ref(false)
+function chooseCategory(c: string) {
+  manualCategory.value = c
+  sheetOpen.value = false
+}
 
 const sending = ref(false)
 const sendError = ref('')
@@ -69,23 +90,28 @@ async function submit() {
         class="textarea"
         :maxlength="200"
         aria-label="反馈内容"
-        placeholder="比如：戏台旁的洗手间没有纸了"
+        :placeholder="placeholder"
         placeholder-class="textarea__ph"
       />
-      <view class="tools">
-        <view class="btn btn--plain h44 tool" role="button" aria-label="语音输入"><Icon name="mic" color="text" :size="18" />语音</view>
-        <view class="btn btn--plain h44 tool" role="button" aria-label="拍照"><Icon name="camera" color="text" :size="18" />拍照</view>
+      <view v-if="isSafety" class="safety" role="alert">
+        <text>{{ form.data.value?.safetyHint }}</text>
+        <view class="safety__link" role="link" @tap="go({ page: 'sos' })">去一键求助 ›</view>
       </view>
-      <StateView :status="draft.status.value" :rows="1" :row-height="80" :error="draft.error.value" @retry="draft.reload">
-        <view v-if="draft.data.value" class="card ai">
+      <view class="tools">
+        <PlaceholderButton icon="mic" label="语音" />
+        <PlaceholderButton icon="camera" label="拍照" />
+      </view>
+      <StateView :status="form.status.value" :rows="1" :row-height="80" :error="form.error.value" @retry="form.reload">
+        <view v-if="form.data.value" class="card ai">
           <view class="ai__row">
             <text class="ai__k">AI 识别</text>
-            <text class="ai__type">{{ draft.data.value.aiType }}</text>
-            <view class="ai__edit" role="button">修改</view>
+            <text v-if="category" class="ai__type">{{ category }}</text>
+            <text v-else class="ai__wait">{{ form.data.value.beforeInput }}</text>
+            <view class="ai__edit" role="button" aria-haspopup="true" @tap="sheetOpen = true">修改</view>
           </view>
           <view class="ai__row">
             <text class="ai__k">位置</text>
-            <text>{{ draft.data.value.location }}</text>
+            <text>{{ location }}</text>
           </view>
         </view>
       </StateView>
@@ -123,6 +149,22 @@ async function submit() {
       <view class="sent__actions">
         <view class="btn btn--plain btn--grow h52" role="link" @tap="go({ page: 'me' })">我的反馈</view>
         <view class="btn btn--action btn--grow h52 sent__go" role="link" @tap="go({ page: 'map' })">继续逛</view>
+      </view>
+    </view>
+    <view v-if="sheetOpen" class="sheet-mask" @tap.self="sheetOpen = false">
+      <view class="sheet" role="dialog" aria-label="选择问题分类">
+        <text class="sheet__title">选择问题分类</text>
+        <view class="sheet__grid">
+          <view
+            v-for="c in categories"
+            :key="c"
+            :class="['sheet__item', { 'sheet__item--on': category === c }]"
+            role="radio"
+            :aria-checked="category === c ? 'true' : 'false'"
+            @tap="chooseCategory(c)"
+          >{{ c }}</view>
+        </view>
+        <view class="btn btn--plain h44" role="button" @tap="sheetOpen = false">取消</view>
       </view>
     </view>
   </view>
@@ -239,6 +281,73 @@ async function submit() {
   align-items: center;
   padding: 0 r(6);
   @include tappable;
+}
+.ai__wait {
+  color: var(--text-disabled);
+  flex-grow: 1;
+}
+.safety {
+  padding: r(10) r(12);
+  border-radius: r(10);
+  background: var(--danger-soft);
+  color: var(--danger-fg);
+  font-size: r(13);
+  display: flex;
+  align-items: center;
+  gap: r(8);
+}
+.safety text {
+  flex-grow: 1;
+}
+.safety__link {
+  font-weight: 700;
+  min-height: r(32);
+  display: flex;
+  align-items: center;
+  @include tappable;
+}
+.sheet-mask {
+  position: fixed;
+  z-index: 50;
+  left: var(--frame-inset, 0px);
+  right: var(--frame-inset, 0px);
+  top: 0;
+  bottom: 0;
+  background: var(--scrim);
+  display: flex;
+  align-items: flex-end;
+}
+.sheet {
+  width: 100%;
+  padding: r(18) r(20) calc(#{r(20)} + env(safe-area-inset-bottom));
+  border-radius: r(16) r(16) 0 0;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: r(14);
+}
+.sheet__title {
+  font-size: r(16);
+  font-weight: 700;
+}
+.sheet__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: r(8);
+}
+.sheet__item {
+  @include pill(44);
+  @include tappable;
+  font-size: r(13);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+.sheet__item--on {
+  border-color: var(--primary-fg);
+  background: var(--primary-soft);
+  color: var(--primary-fg);
+  font-weight: 700;
 }
 .error {
   font-size: r(12);

@@ -1,13 +1,13 @@
 // 生成游客端的静态图片资源（结果已提交到仓库，改了图标或 token 才需要重新跑）：
 //   static/icons/{theme}/{name}--{color}.svg   页面图标
 //   static/tabbar/{theme}/{tab}[-active].png   原生 tabBar 图标，81×81
-//   static/map/{base|route}-{theme}.svg        示意地图底图与观光车路线
+//   static/map/{base|route}-{theme}.svg        示意地图底图与观光车路线（「我的位置」蓝点由页面绘制，关闭定位时隐藏）
 // 用法：pnpm gen:icons
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
-import { mapMeta, themes, type ThemeName, type TokenName } from '@qs/shared'
+import { themes, type ThemeName, type TokenName } from '@qs/shared'
 import { icons, tabBarIcons, type IconDef } from '../src/icons.ts'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../src/static')
@@ -30,7 +30,6 @@ function mapBaseSvg(t: Record<TokenName, string>): string {
 <path d="M-10 290 C 60 260, 120 320, 190 290 S 300 230, 360 250" stroke="${t.river}" stroke-width="22" stroke-linecap="round"/>
 <path d="M40 60 L 90 150 L 170 170 L 250 110 L 310 190" stroke="${t.placeholder}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M90 150 L 120 320 M170 170 L 232 330 M175 360 L 170 170" stroke="${t.placeholder}" stroke-width="7" stroke-linecap="round"/>
-<circle cx="${mapMeta.me.x}" cy="${mapMeta.me.y}" r="6" fill="${t['primary-fg']}" stroke="${t.surface}" stroke-width="3"/>
 </svg>
 `
 }

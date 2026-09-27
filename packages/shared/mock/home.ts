@@ -31,15 +31,16 @@ export const recommendations: Recommendation[] = [
   { personaId: 'photo', tag: '此刻人少', title: '石拱桥 · 不用等', desc: '步行 4 分钟，傍晚逆光更出片', link: { page: 'map', focus: 'gq' } },
   { personaId: 'photo', tag: '约 3 小时', title: '半日出片路线', desc: '6 个机位按实时排队排好顺序，高峰机位自动往后放', link: { page: 'trip' } },
 
-  { personaId: 'family', tag: '8–12 岁', title: '故事版讲解 + 6 个观察小任务', desc: '排队时也能边玩边学，完成可收集印章', link: { page: 'queue', id: 'wc' } },
-  { personaId: 'family', tag: '研学', title: '状元祠：本镇读书人的故事', desc: '讲解可切换为「讲给孩子」版，配合答题打卡', link: { page: 'guide' } },
+  // 研学入口不再直接进入排队页，改去文昌阁机位详情（13.1 1.3）；小任务总数按 13.3 3.5 的配题为 8 个（清单 9.2.3）
+  { personaId: 'family', tag: '8–12 岁', title: '故事版讲解 + 8 个观察小任务', desc: '排队时也能边玩边学，完成可收集印章', link: { page: 'spot', id: 'wc' } },
+  { personaId: 'family', tag: '研学', title: '状元祠：本镇读书人的故事', desc: '讲解可切换为「讲给孩子」版，配合答题打卡', link: { page: 'guide', q: 'zhuangyuan' } },
   { personaId: 'family', tag: '安全', title: '走散提醒与寻人', desc: '开启同行人位置共享；游客中心可发起寻人广播', link: { page: 'sos' } },
 
   { personaId: 'elder', tag: '适老', title: '少走路路线：观光车 + 短步行', desc: '步行控制在 1.5 公里内，沿途休息点和厕所都已标注', link: { page: 'trip' } },
   { personaId: 'elder', tag: '演出', title: '古戏台 14:30 演出，有座位区', desc: '提前 15 分钟到可坐前排，旁边有无障碍洗手间（示例）', link: { page: 'map', focus: 'xt' } },
-  { personaId: 'elder', tag: '安全', title: '医务室与休息点', desc: '体力不支时，一键求助或导航到最近的服务点', link: { page: 'sos' } },
+  { personaId: 'elder', tag: '安全', title: '医务室与休息点', desc: '体力不支时，一键求助或导航到最近的服务点', link: { page: 'map', focus: 'med' } },
 
   { personaId: 'night', tag: '约 2 小时', title: '夜游古镇 · 18:30 亮灯', desc: '老街 → 古戏台 → 荷塘廊桥 → 石拱桥，按亮灯和演出时间排好', link: { page: 'trip' } },
-  { personaId: 'night', tag: '天气', title: '今晚会不会下雨？', desc: 'AI 会在 17:00 再判断一次，变天会主动提醒你（示例）', link: { page: 'guide' } },
+  { personaId: 'night', tag: '天气', title: '今晚会不会下雨？', desc: 'AI 会在 17:00 再判断一次，变天会主动提醒你（示例）', link: { page: 'guide', q: 'night' } },
   { personaId: 'night', tag: '安全', title: '夜里路滑的地方', desc: '荷塘栈道 19:00 后湿滑，已在地图上标注', link: { page: 'sos' } },
 ]

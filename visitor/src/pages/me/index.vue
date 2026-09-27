@@ -100,7 +100,7 @@ function setTheme(name: ThemeName) {
           <view class="fb-list">
             <view v-for="f in feedback.list" :key="f.id" class="fb">
               <view class="fb__head">
-                <text class="fb__text">{{ f.text }}</text>
+                <text class="fb__text">{{ f.title }}</text>
                 <text :class="['fb__status', `fb__status--${f.status}`]">{{ f.status === 'resolved' ? '已解决' : '待受理' }}</text>
               </view>
               <text class="fb__note">#{{ f.id }} · {{ f.note }}</text>
@@ -123,7 +123,7 @@ function setTheme(name: ThemeName) {
         </view>
         <view class="set" role="link" @tap="go({ page: 'sos' })">
           <text class="set__label">安全与求助</text>
-          <text class="set__value">同行人共享{{ prefs.share ? '已开启' : '已关闭' }} ›</text>
+          <text class="set__value">同行人共享{{ prefs.share ? '已开启' : '未开启' }} ›</text>
         </view>
         <view class="set">
           <text class="set__label">我的优惠券</text>

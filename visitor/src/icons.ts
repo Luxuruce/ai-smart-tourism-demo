@@ -40,7 +40,7 @@ export const icons = {
   pause: { body: '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>', filled: true, colors: ['on-color'] },
   check: { body: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', strokeWidth: 2.2, colors: ['ok-fg'] },
   warning: { body: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/>', strokeWidth: 2, colors: ['danger-fg'] },
-  mic: { body: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>', strokeWidth: 2, colors: [T, 'on-color'] },
+  mic: { body: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>', strokeWidth: 2, colors: [T, 'on-color', 'icon-disabled'] },
   camera: { body: '<rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/>', colors: [T, 'icon-disabled'] },
   // —— tabBar（导出为 PNG，见 tabBarIcons）——
   home: { body: '<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>', colors: [] },

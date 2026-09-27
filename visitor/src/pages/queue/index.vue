@@ -26,29 +26,49 @@ onLoad((query) => {
   res.reload()
 })
 const c = computed(() => res.data.value)
+/** 打卡模式：等待不超过 2 分钟的机位，不显示排队计时（13.3 3.2） */
+const checkin = computed(() => c.value?.mode === 'checkin')
 
+// 没有小任务或附近商户的机位，不显示对应 tab
 type Tab = 'story' | 'task' | 'near'
-const tabs: { id: Tab; label: string }[] = [
-  { id: 'story', label: '听讲解' },
-  { id: 'task', label: '小任务' },
-  { id: 'near', label: '附近' },
-]
+const tabs = computed(() => {
+  const list: { id: Tab; label: string }[] = [{ id: 'story', label: '听讲解' }]
+  if (c.value?.quizzes.length) list.push({ id: 'task', label: '小任务' })
+  if (c.value?.merchants.length) list.push({ id: 'near', label: '附近' })
+  return list
+})
 const tab = ref<Tab>('story')
 
 const playing = ref(true)
 const versionId = ref<NarrationId>('std')
 const version = computed(() => c.value?.versions.find((v) => v.id === versionId.value) ?? c.value?.versions[0])
 
-// 小任务：答对后把印章收入「今日收集」
+// 小任务：按机位配题，逐题作答；首次答对任意一题即获得该机位的印章（13.3 3.3 / 3.5）
+const quizIndex = ref(0)
+const quiz = computed(() => c.value?.quizzes[quizIndex.value])
 const answer = ref<string | null>(null)
-const right = computed(() => !!c.value && answer.value === c.value.quiz.answer)
+const right = computed(() => !!quiz.value && answer.value === quiz.value.answer)
+/** 本题答对时是否刚收入印章（同一机位的印章已收过，只显示解析） */
+const newStamp = ref(false)
+const hasNext = computed(() => !!c.value && quizIndex.value < c.value.quizzes.length - 1)
 function pick(opt: string) {
+  if (right.value || !quiz.value) return
   answer.value = opt
-  if (c.value && opt === c.value.quiz.answer) collection.collect(c.value.quiz.stamp)
+  if (opt === quiz.value.answer) newStamp.value = collection.collect(quiz.value.stamp)
 }
+function nextQuiz() {
+  quizIndex.value += 1
+  answer.value = null
+  newStamp.value = false
+}
+const resultText = computed(() => {
+  if (!quiz.value) return ''
+  if (!right.value) return quiz.value.wrongHint
+  // 清单 9.2.2：{解析} 已收入「今日收集」{n}/6
+  return newStamp.value ? `${quiz.value.explain} 已收入「今日收集」${collection.count}/${collection.slots}` : quiz.value.explain
+})
 
-const COUPON_KEY = 'tea-5'
-const claimed = computed(() => collection.coupons.includes(COUPON_KEY))
+const couponKey = (name: string) => `${spotId.value}:${name}`
 
 type Rate = 'good' | 'ok' | 'bad'
 const rates: { id: Rate; label: string }[] = [
@@ -57,6 +77,9 @@ const rates: { id: Rate; label: string }[] = [
   { id: 'bad', label: '不太好' },
 ]
 const rate = ref<Rate | null>(null)
+
+/** 从排队页进入反馈：带上来源和机位，反馈页据此改提示文字和位置（13.4 4.4） */
+const toFeedback = () => go({ page: 'feedback', query: { from: 'queue', spot: spotId.value } })
 
 function finish() {
   done.value = true
@@ -74,14 +97,14 @@ function finish() {
             <view class="head__back" role="button" aria-label="返回机位详情" @tap="back({ page: 'spot', id: c.spotId })">
               <Icon name="back" color="on-color" :size="20" />
             </view>
-            <text class="head__title">正在排队 · {{ c.spotName }}</text>
-            <view class="head__quit" role="link" @tap="go({ page: 'map' })">不排了</view>
+            <text class="head__title">{{ checkin ? '正在打卡' : '正在排队' }} · {{ c.spotName }}</text>
+            <view class="head__quit" role="link" @tap="go({ page: 'map' })">{{ checkin ? '回到地图' : '不排了' }}</view>
           </view>
-          <view class="head__time">
+          <view v-if="!checkin" class="head__time">
             <text class="head__clock">{{ c.elapsed }}</text>
             <view class="head__remain"><text>{{ c.ahead }}</text><text>{{ c.remain }}</text></view>
           </view>
-          <view class="progress" role="progressbar" :aria-valuenow="c.progress" aria-valuemin="0" aria-valuemax="100" aria-label="排队进度">
+          <view v-if="!checkin" class="progress" role="progressbar" :aria-valuenow="c.progress" aria-valuemin="0" aria-valuemax="100" aria-label="排队进度">
             <view class="progress__fill" :style="`width:${c.progress}%`" />
           </view>
         </view>
@@ -126,22 +149,21 @@ function finish() {
             </view>
           </view>
 
-          <view v-if="tab === 'task'" class="card task">
-            <text class="task__progress">{{ c.quiz.progress }}</text>
-            <text class="task__q">{{ c.quiz.question }}</text>
+          <view v-if="tab === 'task' && quiz" class="card task">
+            <text class="task__progress">观察小任务 · {{ quizIndex + 1 }}/{{ c.quizzes.length }}</text>
+            <text class="task__q">{{ quiz.question }}</text>
             <view class="task__opts" role="radiogroup" aria-label="选择答案">
               <view
-                v-for="o in c.quiz.options"
+                v-for="o in quiz.options"
                 :key="o"
                 :class="['opt', { 'opt--on': answer === o }]"
                 role="radio"
                 :aria-checked="answer === o ? 'true' : 'false'"
                 @tap="pick(o)"
-              >{{ o }} 只</view>
+              >{{ o }}{{ quiz.unit ? ` ${quiz.unit}` : '' }}</view>
             </view>
-            <text v-if="answer !== null" :class="['task__result', right ? 'task__result--ok' : 'task__result--bad']" role="status">
-              {{ right ? `${c.quiz.explain} 已收入「今日收集」${collection.count}/${collection.slots}` : c.quiz.wrongHint }}
-            </text>
+            <text v-if="answer !== null" :class="['task__result', right ? 'task__result--ok' : 'task__result--bad']" role="status">{{ resultText }}</text>
+            <view v-if="right && hasNext" class="btn btn--outline h40 task__next" role="button" @tap="nextQuiz">下一题</view>
           </view>
 
           <view v-if="tab === 'near'" class="near">
@@ -154,18 +176,18 @@ function finish() {
               </view>
               <view
                 v-if="m.coupon"
-                :class="['coupon', { 'coupon--claimed': claimed }]"
+                :class="['coupon', { 'coupon--claimed': collection.coupons.includes(couponKey(m.name)) }]"
                 role="button"
-                :aria-pressed="claimed ? 'true' : 'false'"
-                @tap="collection.claimCoupon(COUPON_KEY)"
-              >{{ claimed ? '已领取' : m.coupon.label }}</view>
+                :aria-pressed="collection.coupons.includes(couponKey(m.name)) ? 'true' : 'false'"
+                @tap="collection.claimCoupon(couponKey(m.name))"
+              >{{ collection.coupons.includes(couponKey(m.name)) ? '已领取' : m.coupon.label }}</view>
               <PlaceholderButton v-else-if="m.placeholder" :label="m.placeholder" :height="40" :font-size="12" extra-style="padding:0 12px;" />
             </view>
           </view>
         </view>
 
         <view class="bottom-bar">
-          <view class="btn btn--line h52" role="link" @tap="go({ page: 'feedback' })">反馈问题</view>
+          <view class="btn btn--line h52" role="link" @tap="toFeedback">反馈问题</view>
           <view class="btn btn--action btn--grow h52 finish" role="button" @tap="finish">拍完了</view>
         </view>
       </template>
@@ -173,12 +195,12 @@ function finish() {
       <view v-if="c && done" class="done">
         <view class="done__hero">
           <view class="done__check"><Icon name="check" color="ok-fg" :size="30" /></view>
-          <text class="done__title">拍到了！</text>
-          <text class="done__desc">{{ c.doneTime }}</text>
+          <text class="done__title">{{ c.doneTitle }}</text>
+          <text v-if="c.doneTime" class="done__desc">{{ c.doneTime }}</text>
         </view>
 
         <view class="card block">
-          <text class="block__title">这次排队体验怎么样？</text>
+          <text class="block__title">{{ checkin ? '这次打卡体验怎么样？' : '这次排队体验怎么样？' }}</text>
           <view class="rates" role="radiogroup" aria-label="排队体验">
             <view
               v-for="r in rates"
@@ -189,10 +211,10 @@ function finish() {
               @tap="rate = r.id"
             >{{ r.label }}</view>
           </view>
-          <view v-if="rate === 'bad'" class="block__link" role="link" @tap="go({ page: 'feedback' })">哪里不好？告诉景区，15 分钟内有人处理</view>
+          <view v-if="rate === 'bad'" class="block__link" role="link" @tap="toFeedback">哪里不好？告诉景区，15 分钟内有人处理</view>
         </view>
 
-        <view class="card block block--next">
+        <view v-if="c.nextStop" class="card block block--next">
           <text class="block__caption">{{ c.timeLeft }}</text>
           <view class="next">
             <view class="next__text">
@@ -438,6 +460,10 @@ function finish() {
   border: 2px solid var(--primary-fg);
   background: var(--ok-soft);
   font-weight: 700;
+}
+.task__next {
+  align-self: flex-start;
+  font-size: r(14);
 }
 .task__result {
   font-size: r(13);

@@ -6,7 +6,7 @@ import Icon from '@/components/Icon.vue'
 import HeatChip from '@/components/HeatChip.vue'
 import PlaceholderButton from '@/components/PlaceholderButton.vue'
 import StateView from '@/components/StateView.vue'
-import { heatLabel } from '@/services/map'
+import { heatLabel, isCheckin } from '@/services/map'
 import { getSpot } from '@/services/spot'
 import { back, go } from '@/utils/nav'
 import { useAsync } from '@/utils/useAsync'
@@ -108,13 +108,13 @@ function toggleAlt(id: string) {
       <view v-if="alt" class="bar__row">
         <PlaceholderButton label="步行导航" :height="52" />
         <view class="btn btn--primary h52 bar__main" role="button" @tap="go({ page: 'queue', id: alt.id })">
-          去{{ alt.name }}，到了开始排队
+          去{{ alt.name }}，到了开始{{ isCheckin(alt.waitMin) ? '打卡' : '排队' }}
         </view>
       </view>
       <view v-else class="btn btn--action h52 bar__here" role="button" @tap="go({ page: 'queue', id: spotId })">
-        我到了，就在这里排队
+        {{ spot && isCheckin(spot.waitMin) ? '我到了，开始打卡' : '我到了，就在这里排队' }}
       </view>
-      <text class="bar__note">排队时会自动播放讲解，还有观察小任务</text>
+      <text class="bar__note">{{ spot && isCheckin(spot.waitMin) ? '打卡时可以听讲解、做观察小任务' : '排队时会自动播放讲解，还有观察小任务' }}</text>
     </view>
   </view>
 </template>

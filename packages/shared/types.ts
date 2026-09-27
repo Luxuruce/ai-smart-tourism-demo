@@ -11,11 +11,19 @@ export type PageName =
  * 页面跳转目标。
  * - id：机位 id（spot / queue 页用）
  * - focus：跳到地图时要选中的景点或设施 id
+ * - q：打开 AI 导游时直接显示的对话场景
+ * - persona：跳转前先切换游览身份
+ * - tripTab：打开行程页的哪个 tab
+ * - query：普通页的其他参数（如反馈页的 from、spot）
  */
 export interface Route {
   page: PageName
   id?: string
   focus?: string
+  q?: QaScenarioId
+  persona?: PersonaId
+  tripTab?: 'plan' | 'bus'
+  query?: Record<string, string>
 }
 
 export type SpotType = 'photo' | 'story'
@@ -51,7 +59,7 @@ export interface AltSpot {
   waitMin: number
 }
 
-export type ServiceType = 'wc' | 'bus' | 'info' | 'med' | 'park'
+export type ServiceType = 'wc' | 'bus' | 'info' | 'med' | 'rest' | 'park'
 
 /** 服务设施 */
 export interface ServicePoint {
@@ -98,9 +106,10 @@ export interface NarrationVersion {
 }
 
 export interface QuizTask {
-  progress: string
   question: string
   options: string[]
+  /** 选项的量词，如「只」「层」；非数字选项不填 */
+  unit?: string
   answer: string
   explain: string
   wrongHint: string
@@ -116,10 +125,14 @@ export interface Merchant {
   placeholder?: string
 }
 
-/** 排队页的「等待填充」内容 */
+/**
+ * 排队页的「等待填充」内容。
+ * 等待不超过 2 分钟的机位进入「打卡模式」：不显示排队计时、前方人数和进度。
+ */
 export interface QueueContent {
   spotId: string
   spotName: string
+  mode: 'queue' | 'checkin'
   elapsed: string
   ahead: string
   remain: string
@@ -129,10 +142,13 @@ export interface QueueContent {
   versions: NarrationVersion[]
   source: string
   followUps: string[]
-  quiz: QuizTask
+  /** 小任务，可为空（不显示小任务 tab） */
+  quizzes: QuizTask[]
+  /** 附近商户，可为空（不显示附近 tab） */
   merchants: Merchant[]
+  doneTitle: string
   doneTime: string
-  nextStop: { name: string; desc: string; link: Route }
+  nextStop?: { name: string; desc: string; link: Route }
   timeLeft: string
 }
 
@@ -162,7 +178,7 @@ export interface QaTurn {
   basis?: string
 }
 
-export type QaScenarioId = 'history' | 'photo' | 'night' | 'elder' | 'shop'
+export type QaScenarioId = 'history' | 'zhuangyuan' | 'photo' | 'night' | 'elder' | 'shop'
 
 export interface QaScenario {
   id: QaScenarioId
@@ -188,16 +204,26 @@ export interface TripPlan {
 export interface BusSlot {
   key: string
   range: string
-  note: string
-  full?: boolean
+  /** 标签前缀，如「推荐」「末班」 */
+  tag?: string
+  capacity: number
+  /** 剩余座位（未计入本次演示中的预约） */
+  remaining: number
 }
 
 export interface BusInfo {
   line: string
   rule: string
-  aiTip: string
+  /** 按身份的 AI 推荐说明；夜游没有 */
+  aiTips: Partial<Record<PersonaId, string>>
   fairness: string
+  /** 夜游行程下观光车 tab 的停运说明 */
+  nightNotice: string
+  phone: string
   defaultSlot: string
+  maxSeats: number
+  /** 余位低于这个比例显示「余位紧张」 */
+  tightRatio: number
   slots: BusSlot[]
 }
 
@@ -206,6 +232,8 @@ export type FeedbackStatus = 'pending' | 'resolved'
 /** 游客端「我的反馈」里的一条 */
 export interface VisitorFeedback {
   id: string
+  /** 列表标题：AI 生成的摘要（原型按首句截取） */
+  title: string
   text: string
   status: FeedbackStatus
   note: string
@@ -214,6 +242,13 @@ export interface VisitorFeedback {
 }
 
 export type TicketStatus = 'pending' | 'processing' | 'overdue' | 'resolved' | 'closed'
+
+export interface TicketEvent {
+  label: string
+  /** 演示中发生的事件带时间；原有工单的历史节点可以没有 */
+  time?: string
+  note?: string
+}
 
 export interface Ticket {
   id: string
@@ -225,6 +260,7 @@ export interface Ticket {
   statusText: string
   elapsed: string
   isSafety?: boolean
+  history: TicketEvent[]
 }
 
 export interface Kpi {
@@ -242,9 +278,27 @@ export interface Alert {
   desc: string
   basis: string
   action: 'push' | 'dispatch'
-  /** push 类预警：预计触达人数、推送后结果 */
+  /** push 类预警：预计触达人数、推送后结果、冷却时长 */
   reach?: number
   pushedText?: string
+  cooldownMin?: number
+  /** dispatch 类预警：派单弹窗的预填内容 */
+  dispatch?: DispatchDraft
+}
+
+export interface DispatchDraft {
+  aiType: string
+  area: string
+  owner: string
+  desc: string
+  ticketId: string
+}
+
+export interface Review {
+  channel: string
+  score: number
+  date: string
+  text: string
 }
 
 export interface TopQuestion {

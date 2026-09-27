@@ -4,6 +4,8 @@ import { defineStore } from 'pinia'
 export const usePrefsStore = defineStore('prefs', {
   state: () => ({
     location: true,
-    share: true,
+    // 13.2 2.7：默认关闭；绑定同行人后才开启
+    share: false,
+    companion: null as string | null,
   }),
 })

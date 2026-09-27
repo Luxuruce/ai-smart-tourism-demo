@@ -2,5 +2,4 @@
 <path d="M-10 290 C 60 260, 120 320, 190 290 S 300 230, 360 250" stroke="#A9CCD8" stroke-width="22" stroke-linecap="round"/>
 <path d="M40 60 L 90 150 L 170 170 L 250 110 L 310 190" stroke="#D3DCCF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M90 150 L 120 320 M170 170 L 232 330 M175 360 L 170 170" stroke="#D3DCCF" stroke-width="7" stroke-linecap="round"/>
-<circle cx="175" cy="362" r="6" fill="#1F5E7A" stroke="#FFFFFC" stroke-width="3"/>
 </svg>

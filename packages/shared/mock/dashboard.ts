@@ -1,5 +1,5 @@
-// 来源：Dashboard.dc.html
-import type { Alert, ComplaintShare, Kpi, TopQuestion, TrendPoint } from '../types'
+// 来源：Dashboard.dc.html + 开发交接文档 v1.1（13.2 2.2/2.3、附录 B.7/B.8）
+import type { Alert, ComplaintShare, Kpi, Review, TopQuestion, TrendPoint } from '../types'
 
 export const dataSources = [
   { label: '携程 · 商家授权', enabled: true },
@@ -44,19 +44,28 @@ export const alerts: Alert[] = [
     desc: '建议向正前往的 420 人推送替代机位和「15:30 再来」，预计削峰 25%。',
     basis: '依据 8 条差评',
     reach: 420,
-    pushedText: '已推送 420 人 · 136 人改去替代机位',
+    pushedText: '已推送 420 人 · 30 分钟内 136 人改去替代机位',
+    cooldownMin: 60,
   },
   {
     id: 'wc-supply', level: 'mid', category: '卫生与设施', action: 'dispatch',
     title: '古戏台东侧卫生间补给不及时',
     desc: '5 条评论 + 6 张工单指向同一处，建议午高峰加巡检。',
     basis: '去派单',
+    dispatch: {
+      aiType: '卫生与设施', area: '古戏台', owner: '[保洁 A]', ticketId: '#1028',
+      desc: '古戏台东侧卫生间补给不及时（5 条评论 + 6 张工单），午高峰加一次巡检',
+    },
   },
   {
     id: 'price-tag', level: 'mid', category: '商业秩序', action: 'dispatch',
     title: '阁前茶铺：3 条「价格没标清」反馈',
     desc: '来自 AI 导游对话与反馈，已归并并附定位。',
     basis: '派单巡查',
+    dispatch: {
+      aiType: '价格与性价比', area: '文昌阁 · 阁前茶铺', owner: '[市场巡查 D]', ticketId: '#1029',
+      desc: '3 条「价格没标清」反馈，请现场核查明码标价',
+    },
   },
 ]
 
@@ -68,3 +77,27 @@ export const complaintShares: ComplaintShare[] = [
   { label: '价格与性价比', percent: 11 },
   { label: '其他', percent: 9 },
 ]
+
+/** 推送确认弹窗文案（13.2 2.2） */
+export const pushConfirm = {
+  title: '确认推送错峰建议？',
+  body: '将通过小程序服务通知，向正前往「文昌阁飞檐」且已开启通知的游客推送替代机位和「15:30 再来」的建议。',
+  reachSuffix: '人（已开启通知的游客）',
+  note: '推送后不可撤回。同一机位 60 分钟内只能推送一次。',
+}
+
+/** 「依据 8 条差评」弹窗（附录 B.8）；数据里没有昵称，不显示昵称列（清单 9.2.4） */
+export const crowdReviews = {
+  title: '文昌阁飞檐 · 排队与拥挤相关差评（近 30 天）',
+  footer: '来源：携程商家后台授权、美团导出上传 · 已按 AI 标签归类为「排队与拥挤」',
+  items: [
+    { channel: '携程', score: 2, date: '09-21', text: '文昌阁拍照排了快 40 分钟，一下午就逛了两个点。' },
+    { channel: '携程', score: 3, date: '09-20', text: '景色不错，就是热门点人太多，没人维持秩序。' },
+    { channel: '美团', score: 2, date: '09-18', text: '下午两点到四点千万别去文昌阁，全在排队。' },
+    { channel: '携程', score: 3, date: '09-15', text: '带孩子排队很煎熬，旁边什么可看的都没有。' },
+    { channel: '美团', score: 1, date: '09-14', text: '有人插队也没人管，体验很差。' },
+    { channel: '携程', score: 3, date: '09-12', text: '出片是出片，代价是排队半小时。' },
+    { channel: '美团', score: 2, date: '09-09', text: '排到的时候光线已经不好了。' },
+    { channel: '携程', score: 3, date: '09-06', text: '建议景区分时段，或者告诉大家哪里人少。' },
+  ] as Review[],
+}

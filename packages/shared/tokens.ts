@@ -57,6 +57,8 @@ export const lightTokens = {
   'shadow-sm': '0 2px 10px rgba(27,42,51,0.06)',
   'shadow-md': '0 4px 12px rgba(27,42,51,0.18)',
   'shadow-lg': '0 6px 20px rgba(27,42,51,0.16)',
+  /** 弹窗、底部面板的遮罩 */
+  'scrim': 'rgba(27,42,51,0.4)',
 } as const
 
 export type TokenName = keyof typeof lightTokens
@@ -104,6 +106,7 @@ export const darkTokens: Record<TokenName, string> = {
   'shadow-sm': '0 2px 10px rgba(0,0,0,0.06)',
   'shadow-md': '0 4px 12px rgba(0,0,0,0.18)',
   'shadow-lg': '0 6px 20px rgba(0,0,0,0.16)',
+  'scrim': 'rgba(0,0,0,0.55)',
 }
 
 export const themes: Record<ThemeName, Record<TokenName, string>> = {
@@ -118,8 +121,6 @@ export const adminTokens = {
   'sidebar-muted': '#B9C6CC',
   /** 合规「部分达标」图标 */
   'warn-icon': '#8C6410',
-  /** 弹窗遮罩 */
-  'scrim': 'rgba(27,42,51,0.4)',
 } as const
 
 /** 把一组 token 拼成 CSS 变量声明：`--bg:#F3F5F0;--surface:…;` */

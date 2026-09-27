@@ -9,11 +9,11 @@ import PlaceholderButton from '@/components/PlaceholderButton.vue'
 import StateView from '@/components/StateView.vue'
 import FabFeedback from '@/components/FabFeedback.vue'
 import {
-  distanceValue, focusTarget, getServicePoints, getSpots, glyphOf, heatLabel, serviceTypeOrder, serviceTypes, waitShort,
+  distanceLabel, distanceValue, focusTarget, getMapMeta, getServicePoints, getSpots, glyphOf, heatLabel, isCheckin, serviceTypeOrder,
+  serviceTypes, waitText,
 } from '@/services/map'
 import { useMapFocusStore } from '@/stores/mapFocus'
 import { usePrefsStore } from '@/stores/prefs'
-import { useTripStore } from '@/stores/trip'
 import { go } from '@/utils/nav'
 import { useAsync } from '@/utils/useAsync'
 import { usePage } from '@/utils/usePage'
@@ -23,11 +23,11 @@ import { usePage } from '@/utils/usePage'
 defineOptions({ inheritAttrs: false })
 const { theme, pageStyle } = usePage()
 const prefs = usePrefsStore()
-const trip = useTripStore()
 const focus = useMapFocusStore()
 
 const spotsRes = useAsync(getSpots)
 const svcRes = useAsync(getServicePoints)
+const meta = useAsync(getMapMeta, { isEmpty: () => false })
 
 type ScenicFilter = 'all' | SpotType
 const view = ref<'map' | 'list'>('map')
@@ -120,9 +120,17 @@ onShow(() => {
   }
 })
 
-function bookBus() {
-  trip.openTab('bus')
-  go({ page: 'trip' })
+const bookBus = () => go({ page: 'trip', tripTab: 'bus' })
+
+// 图钉气泡变宽后，靠近地图左右边缘的气泡往里收，圆点仍对准坐标（13.0）
+const MAP_W = 350
+const EDGE_GAP = 4
+function pinAlign(s: Spot): 'center' | 'left' | 'right' {
+  const text = `${s.short} · ${waitText(s.waitMin)}`
+  const width = Array.from(text).length * 12 + 20
+  if (s.x - width / 2 < EDGE_GAP) return 'left'
+  if (s.x + width / 2 > MAP_W - EDGE_GAP) return 'right'
+  return 'center'
 }
 
 const px = (n: number) => `${(n * 750) / 390}rpx`
@@ -174,6 +182,12 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
         <view class="map">
           <image class="map__layer" :src="`/static/map/base-${theme.name}.svg`" aria-hidden="true" />
           <image v-if="showRoute" class="map__layer" :src="`/static/map/route-${theme.name}.svg`" aria-hidden="true" />
+          <view
+            v-if="prefs.location && meta.data.value"
+            class="me-dot"
+            :style="`left:${px(meta.data.value.me.x)};top:${px(meta.data.value.me.y)}`"
+            aria-label="我的位置"
+          />
 
           <view
             v-for="s in shownSvc"
@@ -191,14 +205,14 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
           <view
             v-for="s in shownSpots"
             :key="s.id"
-            class="pin"
+            :class="['pin', `pin--${pinAlign(s)}`]"
             :style="`left:${px(s.x)};top:${px(s.y)}`"
             role="button"
-            :aria-label="`${s.name}，${heatLabel(s.heat)}，${waitShort(s.waitMin)}`"
+            :aria-label="`${s.name}，${heatLabel(s.heat)}，${waitText(s.waitMin)}`"
             :aria-pressed="selLayer === 'scenic' && sel === s.id ? 'true' : 'false'"
             @tap="pickSpot(s.id)"
           >
-            <text :class="['pin__bubble', `pin__bubble--${s.heat}`, { 'pin__bubble--on': selLayer === 'scenic' && sel === s.id }]">{{ s.short }} · {{ waitShort(s.waitMin) }}</text>
+            <text :class="['pin__bubble', `pin__bubble--${s.heat}`, { 'pin__bubble--on': selLayer === 'scenic' && sel === s.id }]">{{ s.short }} · {{ waitText(s.waitMin) }}</text>
             <view :class="['pin__dot', `pin__dot--${s.heat}`]" />
           </view>
 
@@ -249,10 +263,10 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
             <text class="card__name">{{ selSpot.name }}</text>
             <HeatChip :heat="selSpot.heat" :text="heatLabel(selSpot.heat)" />
           </view>
-          <text class="card__detail">约等 {{ waitShort(selSpot.waitMin) }} · {{ selSpot.detail }}</text>
+          <text class="card__detail">约等 {{ waitText(selSpot.waitMin) }} · {{ selSpot.detail }}</text>
           <view class="card__actions">
             <view class="btn btn--outline" role="button" @tap="go({ page: 'spot', id: selSpot.id })">查看详情</view>
-            <view class="btn btn--action" role="button" @tap="go({ page: 'queue', id: selSpot.id })">我到了，开始排队</view>
+            <view class="btn btn--action" role="button" @tap="go({ page: 'queue', id: selSpot.id })">{{ isCheckin(selSpot.waitMin) ? '我到了，开始打卡' : '我到了，开始排队' }}</view>
           </view>
         </view>
 
@@ -260,7 +274,7 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
           <view class="card__head">
             <text class="glyph glyph--30">{{ glyphOf(selSvc) }}</text>
             <text class="card__name">{{ selSvc.name }}</text>
-            <text class="card__dist">步行约 {{ selSvc.distance }}</text>
+            <text class="card__dist">{{ distanceLabel(selSvc, prefs.location) }}</text>
           </view>
           <text class="card__detail">{{ selSvc.detail }}</text>
           <view class="card__actions">
@@ -278,7 +292,7 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
           <view v-if="!listSpots.length" class="list__none">当前筛选下没有景点</view>
           <view v-for="s in listSpots" :key="s.id" class="row" role="link" @tap="go({ page: 'spot', id: s.id })">
             <text class="row__name">{{ s.name }}</text>
-            <text class="row__wait">{{ waitShort(s.waitMin) }}</text>
+            <text class="row__wait">{{ waitText(s.waitMin) }}</text>
             <HeatChip :heat="s.heat" :text="heatLabel(s.heat)" size="sm" />
           </view>
         </template>
@@ -288,7 +302,7 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
           <view v-for="s in listSvc" :key="s.id" class="row row--svc" role="button" @tap="pickSvc(s.id, true)">
             <text class="glyph glyph--28">{{ glyphOf(s) }}</text>
             <text class="row__svc-name">{{ s.name }}</text>
-            <text class="row__dist">{{ s.distance }}</text>
+            <text class="row__dist">{{ prefs.location ? s.distance : `距南门约 ${s.distance}` }}</text>
           </view>
         </template>
         <view v-if="noLayer" class="list__none">已隐藏全部图层，打开上方任一图层</view>
@@ -478,6 +492,24 @@ const px = (n: number) => `${(n * 750) / 390}rpx`
   align-items: center;
   gap: r(2);
   @include tappable;
+}
+.pin--left {
+  transform: translate(#{r(-7)}, -100%);
+  align-items: flex-start;
+}
+.pin--right {
+  transform: translate(calc(-100% + #{r(7)}), -100%);
+  align-items: flex-end;
+}
+.me-dot {
+  position: absolute;
+  width: r(12);
+  height: r(12);
+  border-radius: 50%;
+  background: var(--primary-fg);
+  border: r(3) solid var(--surface);
+  box-sizing: content-box;
+  transform: translate(-50%, -50%);
 }
 .pin__bubble {
   padding: r(4) r(8);

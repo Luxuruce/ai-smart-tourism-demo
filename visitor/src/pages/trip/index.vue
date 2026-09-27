@@ -1,21 +1,28 @@
 <script setup lang="ts">
-// V8 AI 行程与观光车预约（Trip.dc.html）
-import { computed, ref } from 'vue'
+// V8 AI 行程与观光车预约（Trip.dc.html + 交接文档 v1.1 13.1 1.1、13.2 2.6、13.3 3.4）
+import { computed, ref, watch } from 'vue'
+import type { BusSlot } from '@qs/shared'
 import Icon from '@/components/Icon.vue'
 import StateView from '@/components/StateView.vue'
-import { bookBus, getBusInfo, getFollowNote, getTripPlan } from '@/services/trip'
+import { bookBus, cancelBus, getBusInfo, getFollowNote, getTripPlan, seatLabel } from '@/services/trip'
+import { usePartyStore } from '@/stores/party'
+import { usePersonaStore } from '@/stores/persona'
 import { useTripStore } from '@/stores/trip'
 import { back, go } from '@/utils/nav'
 import { useAsync } from '@/utils/useAsync'
 import { usePage } from '@/utils/usePage'
 
-
 // 页面参数不作为属性透传到根节点
 defineOptions({ inheritAttrs: false })
+
 const { pageStyle } = usePage(true)
 const trip = useTripStore()
+const persona = usePersonaStore()
+const party = usePartyStore()
 
-const plan = useAsync(getTripPlan, { isEmpty: (v) => v.steps.length === 0 })
+// 行程按当前身份切换
+const plan = useAsync(() => getTripPlan(persona.id), { isEmpty: (v) => v.steps.length === 0 })
+watch(() => persona.id, () => plan.reload())
 const bus = useAsync(getBusInfo, { isEmpty: (v) => v.slots.length === 0 })
 const note = useAsync(getFollowNote)
 
@@ -24,23 +31,93 @@ const tabs = [
   { id: 'bus', label: '观光车预约' },
 ] as const
 
-const booking = ref(false)
+/** 夜游行程下观光车已停运 */
+const isNight = computed(() => persona.id === 'night')
+const stats = computed(() => plan.data.value?.stats ?? [])
+const aiTip = computed(() => bus.data.value?.aiTips[persona.id])
+
+// 余位：扣掉本次演示中的预约座位（预约后扣减，改约或取消后退回）
+const remainingOf = (b: BusSlot) => b.remaining - (trip.booking?.slot === b.key ? trip.booking.seats : 0)
+const slotNote = (b: BusSlot) => {
+  const label = seatLabel(remainingOf(b), b.capacity)
+  const text = b.tag && label !== '已约满' ? `${b.tag} · ${label}` : label
+  return trip.slot === b.key ? `${text} · 已选` : text
+}
+const selected = computed(() => bus.data.value?.slots.find((b) => b.key === trip.slot))
+/** 选中时段可用座位：已约的就是这个时段时，自己的座位也算可用 */
+const available = computed(() => {
+  const b = selected.value
+  if (!b) return 0
+  return remainingOf(b) + (trip.booking?.slot === b.key ? trip.booking.seats : 0)
+})
+const overSeats = computed(() => !!selected.value && trip.seats > available.value)
+
+const busy = ref(false)
 const bookError = ref('')
-async function confirm() {
-  if (booking.value) return
-  booking.value = true
+
+async function run(action: () => Promise<void>) {
+  if (busy.value) return
+  busy.value = true
   bookError.value = ''
   try {
-    await bookBus(trip.slot)
-    trip.confirm()
+    await action()
   } catch (e) {
-    bookError.value = e instanceof Error ? e.message : '预约失败，请重试'
+    bookError.value = e instanceof Error ? e.message : '操作失败，请重试'
   } finally {
-    booking.value = false
+    busy.value = false
   }
 }
 
-const stats = computed(() => plan.data.value?.stats ?? [])
+function confirm() {
+  if (overSeats.value) return
+  run(async () => {
+    await bookBus(trip.slot, trip.seats)
+    trip.book(trip.slot, trip.seats)
+  })
+}
+
+/** 已预约后改选时段：确认后直接改约，原预约自动取消 */
+function pickSlot(b: BusSlot) {
+  const old = trip.booking
+  if (!old || old.slot === b.key) {
+    trip.pick(b.key)
+    return
+  }
+  if (trip.seats > b.remaining) {
+    uni.showToast({ title: `该时段只剩 ${b.remaining} 个座位`, icon: 'none' })
+    return
+  }
+  uni.showModal({
+    title: `改约为 ${b.key}？`,
+    content: `原 ${old.slot} 的预约会自动取消`,
+    confirmText: '改约',
+    success: (r) => {
+      if (!r.confirm) return
+      run(async () => {
+        await bookBus(b.key, trip.seats)
+        trip.book(b.key, trip.seats)
+      })
+    },
+  })
+}
+
+function cancelBooking() {
+  const old = trip.booking
+  if (!old) return
+  uni.showModal({
+    title: '取消预约？',
+    content: `取消后，${old.slot} 班次的 ${old.seats} 个座位会释放给其他游客`,
+    confirmText: '取消预约',
+    cancelText: '再想想',
+    success: (r) => {
+      if (!r.confirm) return
+      run(async () => {
+        await cancelBus(old.slot)
+        trip.cancel()
+      })
+    },
+  })
+}
 </script>
 
 <template>
@@ -51,10 +128,18 @@ const stats = computed(() => plan.data.value?.stats ?? [])
         <view class="head__back" role="button" aria-label="返回首页" @tap="back({ page: 'home' })">
           <Icon name="back" color="on-color" :size="20" />
         </view>
-        <text class="head__meta">{{ plan.data.value?.meta ?? '' }}</text>
+        <text class="head__meta">今天 · {{ party.label }} · {{ plan.data.value?.meta ?? persona.label }}</text>
         <text class="head__tag">示例数据</text>
       </view>
       <text class="head__title">{{ plan.data.value?.title ?? '' }}</text>
+      <view class="party" role="group" aria-label="同行人数">
+        <text class="party__label">同行人数</text>
+        <view class="stepper stepper--dark">
+          <view :class="['stepper__btn', { 'stepper__btn--off': party.size <= 1 }]" role="button" aria-label="减少同行人数" @tap="party.set(party.size - 1)">−</view>
+          <text class="stepper__value" aria-live="polite">{{ party.size }} 人</text>
+          <view :class="['stepper__btn', { 'stepper__btn--off': party.size >= 6 }]" role="button" aria-label="增加同行人数" @tap="party.set(party.size + 1)">+</view>
+        </view>
+      </view>
       <view class="stats">
         <view v-for="s in stats" :key="s.label" class="stat">
           <text class="stat__label">{{ s.label }}</text>
@@ -97,34 +182,53 @@ const stats = computed(() => plan.data.value?.stats ?? [])
         </view>
       </StateView>
 
-      <StateView v-else :status="bus.status.value" :rows="4" :row-height="48" empty-text="今天的观光车时段还没发布" :error="bus.error.value" @retry="bus.reload">
-        <view v-if="bus.data.value" class="card busbox">
-          <view class="busbox__head">
-            <text class="busbox__line">{{ bus.data.value.line }}</text>
-            <text class="busbox__rule">{{ bus.data.value.rule }}</text>
-          </view>
-          <view class="slots" role="radiogroup" aria-label="乘车时段">
-            <template v-for="b in bus.data.value.slots" :key="b.key">
-              <view v-if="b.full" class="slot slot--full" role="radio" aria-checked="false" aria-disabled="true">
-                <text class="slot__time">{{ b.range }}</text>
-                <text class="slot__note">{{ b.note }}</text>
-              </view>
-              <view
-                v-else
-                :class="['slot', { 'slot--on': trip.slot === b.key }]"
-                role="radio"
-                :aria-checked="trip.slot === b.key ? 'true' : 'false'"
-                @tap="trip.pick(b.key)"
-              >
-                <text class="slot__time">{{ b.range }}</text>
-                <text :class="['slot__note', { 'slot__note--on': trip.slot === b.key }]">{{ trip.slot === b.key ? `${b.note} · 已选` : b.note }}</text>
-              </view>
-            </template>
-          </view>
-          <text class="busbox__ai">{{ bus.data.value.aiTip }}</text>
-          <text class="busbox__fair">{{ bus.data.value.fairness }}</text>
+      <template v-else>
+        <view v-if="isNight && bus.data.value" class="card busbox busbox--night" role="status">
+          <text class="busbox__line">{{ bus.data.value.line }}</text>
+          <text class="busbox__night">{{ bus.data.value.nightNotice }}</text>
         </view>
-      </StateView>
+        <StateView v-else :status="bus.status.value" :rows="4" :row-height="48" empty-text="今天的观光车时段还没发布" :error="bus.error.value" @retry="bus.reload">
+          <view v-if="bus.data.value" class="card busbox">
+            <view class="busbox__head">
+              <text class="busbox__line">{{ bus.data.value.line }}</text>
+              <text class="busbox__rule">{{ bus.data.value.rule }}</text>
+            </view>
+            <view class="slots" role="radiogroup" aria-label="乘车时段">
+              <template v-for="b in bus.data.value.slots" :key="b.key">
+                <view v-if="remainingOf(b) <= 0 && trip.booking?.slot !== b.key" class="slot slot--full" role="radio" aria-checked="false" aria-disabled="true">
+                  <text class="slot__time">{{ b.range }}</text>
+                  <text class="slot__note">已约满</text>
+                </view>
+                <view
+                  v-else
+                  :class="['slot', { 'slot--on': trip.slot === b.key }]"
+                  role="radio"
+                  :aria-checked="trip.slot === b.key ? 'true' : 'false'"
+                  @tap="pickSlot(b)"
+                >
+                  <text class="slot__time">{{ b.range }}</text>
+                  <text :class="['slot__note', { 'slot__note--on': trip.slot === b.key }]">{{ slotNote(b) }}</text>
+                </view>
+              </template>
+            </view>
+            <view class="form-row">
+              <text class="form-row__label">座位数</text>
+              <view class="stepper">
+                <view :class="['stepper__btn', { 'stepper__btn--off': trip.seats <= 1 }]" role="button" aria-label="减少座位" @tap="trip.setSeats(trip.seats - 1)">−</view>
+                <text class="stepper__value" aria-live="polite">{{ trip.seats }} 座</text>
+                <view :class="['stepper__btn', { 'stepper__btn--off': trip.seats >= bus.data.value.maxSeats }]" role="button" aria-label="增加座位" @tap="trip.setSeats(trip.seats + 1)">+</view>
+              </view>
+            </view>
+            <view class="form-row">
+              <text class="form-row__label">手机号</text>
+              <text class="form-row__value">{{ bus.data.value.phone }}</text>
+            </view>
+            <text v-if="overSeats" class="seat-warn" role="alert">该时段只剩 {{ available }} 个座位</text>
+            <text v-if="aiTip" class="busbox__ai">{{ aiTip }}</text>
+            <text class="busbox__fair">{{ bus.data.value.fairness }}</text>
+          </view>
+        </StateView>
+      </template>
 
       <view v-if="note.data.value" class="follow">
         <text class="follow__bold">{{ note.data.value.bold }}</text>{{ note.data.value.text }}
@@ -133,11 +237,21 @@ const stats = computed(() => plan.data.value?.stats ?? [])
     </view>
 
     <view class="bottom-bar bar">
-      <view class="btn btn--line h48" role="link" @tap="go({ page: 'guide' })">让 AI 改一改</view>
-      <view v-if="trip.confirmed" class="btn btn--ok btn--grow h48 bar__done" role="status">已确认 · 观光车 {{ trip.slot }} 已预约</view>
-      <view v-else class="btn btn--action btn--grow h48 bar__confirm" role="button" :aria-busy="booking ? 'true' : 'false'" @tap="confirm">
-        {{ booking ? '正在预约…' : `确认行程并预约 ${trip.slot}` }}
+      <view class="bar__row">
+        <view :class="['btn', 'btn--line', 'h48', { 'btn--grow': isNight }]" role="link" @tap="go({ page: 'guide' })">让 AI 改一改</view>
+        <template v-if="!isNight">
+          <view v-if="trip.confirmed" class="btn btn--ok btn--grow h48 bar__done" role="status">已确认 · 观光车 {{ trip.slot }} 已预约</view>
+          <view
+            v-else
+            :class="['btn', 'btn--action', 'btn--grow', 'h48', 'bar__confirm', { 'bar__confirm--off': overSeats }]"
+            role="button"
+            :aria-disabled="overSeats ? 'true' : 'false'"
+            :aria-busy="busy ? 'true' : 'false'"
+            @tap="confirm"
+          >{{ busy ? '正在预约…' : `确认行程并预约 ${trip.slot}` }}</view>
+        </template>
       </view>
+      <view v-if="trip.booking && !isNight" class="bar__cancel" role="button" @tap="cancelBooking">取消预约（{{ trip.booking.slot }} · {{ trip.booking.seats }} 座）</view>
     </view>
   </view>
 </template>
@@ -145,7 +259,7 @@ const stats = computed(() => plan.data.value?.stats ?? [])
 <style lang="scss" scoped>
 .page {
   min-height: 100vh;
-  padding-bottom: r(88);
+  padding-bottom: r(120);
 }
 .head {
   padding: calc(var(--safe-top) + #{r(14)}) r(20) r(16);
@@ -399,6 +513,90 @@ const stats = computed(() => plan.data.value?.stats ?? [])
 }
 .bar {
   padding-bottom: r(12);
+  flex-direction: column;
+  gap: r(6);
+}
+.bar__row {
+  display: flex;
+  gap: r(10);
+}
+.bar__cancel {
+  align-self: center;
+  min-height: r(32);
+  display: flex;
+  align-items: center;
+  font-size: r(13);
+  color: var(--text-2);
+  text-decoration: underline;
+  @include tappable;
+}
+.bar__confirm--off {
+  opacity: 0.5;
+}
+.party {
+  display: flex;
+  align-items: center;
+  gap: r(10);
+}
+.party__label {
+  font-size: r(12);
+  color: var(--on-primary-sub);
+  flex-grow: 1;
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: r(18);
+  background: var(--surface);
+}
+.stepper--dark {
+  border-color: transparent;
+  background: var(--primary-deep);
+}
+.stepper__btn {
+  width: r(44);
+  height: r(36);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: r(18);
+  @include tappable;
+}
+.stepper__btn--off {
+  opacity: 0.35;
+}
+.stepper__value {
+  min-width: r(44);
+  text-align: center;
+  font-size: r(14);
+  font-weight: 700;
+}
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: r(10);
+  min-height: r(44);
+}
+.form-row__label {
+  font-size: r(14);
+  flex-grow: 1;
+}
+.form-row__value {
+  font-size: r(14);
+  color: var(--text-2);
+}
+.seat-warn {
+  font-size: r(12);
+  color: var(--danger-fg);
+}
+.busbox--night {
+  gap: r(6);
+}
+.busbox__night {
+  font-size: r(13);
+  line-height: 1.6;
+  color: var(--text-2);
 }
 .bar__confirm {
   font-size: r(15);

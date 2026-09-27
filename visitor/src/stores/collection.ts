@@ -14,8 +14,11 @@ export const useCollectionStore = defineStore('collection', {
     ordered: (s) => [...s.stamps].sort((a, b) => STAMP_ORDER.indexOf(a) - STAMP_ORDER.indexOf(b)),
   },
   actions: {
-    collect(stamp: string) {
-      if (!this.stamps.includes(stamp)) this.stamps.push(stamp)
+    /** 收入印章；返回是否为首次获得 */
+    collect(stamp: string): boolean {
+      if (this.stamps.includes(stamp)) return false
+      this.stamps.push(stamp)
+      return true
     },
     claimCoupon(key: string) {
       if (!this.coupons.includes(key)) this.coupons.push(key)
