@@ -1,0 +1,25 @@
+{
+  "name": "青石古镇",
+  "appid": "",
+  "description": "景区口碑与体验 MVP · 游客端原型",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "h5": {
+    "title": "青石古镇 · 游客端",
+    "router": { "mode": "hash" },
+    "devServer": { "port": 5173 }
+  },
+  "mp-weixin": {
+    "appid": "",
+    "setting": { "urlCheck": false, "es6": true, "minified": true },
+    "usingComponents": true,
+    "lazyCodeLoading": "requiredComponents"
+  },
+  "mp-toutiao": {
+    "appid": "",
+    "setting": { "urlCheck": false, "es6": true, "minified": true },
+    "usingComponents": true
+  },
+  "vueVersion": "3"
+}

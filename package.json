@@ -1,0 +1,11 @@
+{
+  "name": "qingshi-mvp",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev:visitor": "pnpm --filter visitor dev:h5",
+    "dev:admin": "pnpm --filter admin dev",
+    "build": "pnpm --filter visitor build:h5 && pnpm --filter visitor build:mp-weixin && pnpm --filter admin build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

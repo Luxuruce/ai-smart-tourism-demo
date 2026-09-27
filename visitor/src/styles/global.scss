@@ -1,0 +1,109 @@
+// 全局样式（在 App.vue 引入）
+page {
+  // 顶部安全区：H5 为 0；小程序要让出状态栏和右上角胶囊按钮
+  --safe-top: 0px;
+  font-family: 'Noto Sans SC', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-size: r(14);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+view, text, image, input, textarea {
+  box-sizing: border-box;
+}
+
+.serif {
+  font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+}
+
+/* 屏幕阅读器可读、视觉隐藏 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+/* —— 通用按钮：.btn + 颜色 + 高度 —— */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 r(18);
+  font-size: r(14);
+  font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+.btn--grow {
+  flex: 1 1 0;
+}
+.btn--action { background: var(--action); color: var(--on-color); }
+.btn--primary { background: var(--primary); color: var(--on-color); }
+.btn--danger { background: var(--danger); color: var(--on-color); }
+.btn--ok { background: var(--ok-soft); color: var(--ok-fg); }
+.btn--danger-soft { background: var(--danger-soft); color: var(--danger-fg); }
+// 描边按钮：浅底、主色字
+.btn--line { border: 1px solid var(--border-strong); background: var(--surface); color: var(--primary-fg); font-weight: 400; }
+// 描边按钮：正文色字
+.btn--plain { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 400; }
+.btn--outline { border: 1px solid var(--primary-fg); background: var(--surface); color: var(--primary-fg); }
+.h36 { height: r(36); border-radius: r(18); }
+.h40 { height: r(40); border-radius: r(20); }
+.h44 { height: r(44); border-radius: r(22); }
+.h48 { height: r(48); border-radius: r(24); }
+.h52 { height: r(52); border-radius: r(26); }
+
+/* —— 卡片 —— */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: r(14);
+}
+
+/* —— 页面底部固定操作栏 —— */
+.bottom-bar {
+  position: fixed;
+  z-index: 20;
+  left: var(--frame-inset, 0px);
+  right: var(--frame-inset, 0px);
+  bottom: var(--window-bottom, 0px);
+  padding: r(12) r(20) calc(#{r(24)} + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  gap: r(10);
+}
+
+/* #ifdef MP */
+page {
+  --safe-top: calc(var(--status-bar-height) + 44px);
+}
+/* #endif */
+
+/* #ifdef H5 */
+:root {
+  // 桌面浏览器里画框左右的空白，fixed 元素用它对齐画框
+  --frame-inset: max(0px, calc((100vw - 390px) / 2));
+}
+// H5 演示：桌面浏览器里把应用限制在 390 宽的手机画框里
+body {
+  // 画框外的背景不属于页面主题，固定用中性灰
+  background: rgb(120 128 132 / 0.35);
+}
+uni-app,
+uni-page-head {
+  max-width: 390px;
+  margin: 0 auto !important;
+}
+// tabBar 是 fixed 定位，用左右留白对齐画框（不能用 transform，否则内部 fixed 元素会错位）
+.uni-tabbar {
+  left: var(--frame-inset) !important;
+  right: var(--frame-inset) !important;
+  width: auto !important;
+}
+/* #endif */

@@ -1,0 +1,37 @@
+// uni-app 会把本文件自动注入到每个 SFC 的 <style lang="scss">，只放变量、函数和 mixin，不放样式规则。
+
+// 设计稿宽 390px → 750rpx
+@function r($px) {
+  // 750 ÷ 390 ≈ 1.923（用乘法，避免 Sass 除法的弃用警告）
+  @return $px * 1.9230769231 * 1rpx;
+}
+
+// 衬线标题字体
+@mixin serif($size, $weight: 700) {
+  font-family: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+  font-size: r($size);
+  font-weight: $weight;
+}
+
+// 单行省略
+@mixin ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// 可点击元素：去掉小程序 / H5 的点击高亮
+@mixin tappable {
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+// 胶囊按钮
+@mixin pill($h) {
+  height: r($h);
+  border-radius: r($h * 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}

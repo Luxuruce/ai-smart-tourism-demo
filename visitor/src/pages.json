@@ -1,0 +1,39 @@
+{
+  "pages": [
+    { "path": "pages/home/index", "style": { "navigationBarTitleText": "首页" } },
+    { "path": "pages/map/index", "style": { "navigationBarTitleText": "游览地图" } },
+    { "path": "pages/trip/index", "style": { "navigationBarTitleText": "AI 行程" } },
+    { "path": "pages/guide/index", "style": { "navigationBarTitleText": "AI 导游" } },
+    { "path": "pages/me/index", "style": { "navigationBarTitleText": "我的" } },
+    { "path": "pages/spot/index", "style": { "navigationBarTitleText": "机位详情" } },
+    { "path": "pages/queue/index", "style": { "navigationBarTitleText": "排队中" } },
+    { "path": "pages/feedback/index", "style": { "navigationBarTitleText": "告诉景区" } },
+    { "path": "pages/sos/index", "style": { "navigationBarTitleText": "安全与求助" } }
+  ],
+  "globalStyle": {
+    "navigationStyle": "custom",
+    "navigationBarTextStyle": "black",
+    "navigationBarBackgroundColor": "#F3F5F0",
+    "backgroundColor": "#F3F5F0",
+    "rpxCalcMaxDeviceWidth": 430,
+    "rpxCalcBaseDeviceWidth": 390,
+    "rpxCalcIncludeWidth": 750
+  },
+  "tabBar": {
+    "color": "#56636A",
+    "selectedColor": "#26704F",
+    "backgroundColor": "#FFFFFC",
+    "borderStyle": "white",
+    "height": "64px",
+    "fontSize": "11px",
+    "iconWidth": "22px",
+    "spacing": "2px",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "首页", "iconPath": "static/tabbar/light/home.png", "selectedIconPath": "static/tabbar/light/home-active.png" },
+      { "pagePath": "pages/map/index", "text": "地图", "iconPath": "static/tabbar/light/map.png", "selectedIconPath": "static/tabbar/light/map-active.png" },
+      { "pagePath": "pages/trip/index", "text": "行程", "iconPath": "static/tabbar/light/trip.png", "selectedIconPath": "static/tabbar/light/trip-active.png" },
+      { "pagePath": "pages/guide/index", "text": "AI 导游", "iconPath": "static/tabbar/light/guide.png", "selectedIconPath": "static/tabbar/light/guide-active.png" },
+      { "pagePath": "pages/me/index", "text": "我的", "iconPath": "static/tabbar/light/me.png", "selectedIconPath": "static/tabbar/light/me-active.png" }
+    ]
+  }
+}
