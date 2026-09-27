@@ -1,0 +1,55 @@
+# 推送到 main 后自动打包游客端 H5 和后台，发布到 GitHub Pages：
+#   /          入口页（site/index.html）
+#   /visitor/  游客端
+#   /admin/    景区后台
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # pnpm 版本取自 package.json 的 packageManager 字段
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter visitor build:h5
+      - run: pnpm --filter admin build
+      - name: 组装站点
+        run: |
+          mkdir -p _site
+          cp site/index.html _site/
+          cp -r visitor/dist/build/h5 _site/visitor
+          cp -r admin/dist _site/admin
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

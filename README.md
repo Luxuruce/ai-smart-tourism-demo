@@ -1,6 +1,8 @@
 # 景区口碑与体验 MVP · 可运行前端原型
 
-依据 [`../开发交接文档.md`](../开发交接文档.md) 实现：游客端 9 屏（uni-app）+ 景区后台 3 页（Vue 3），数据全部来自本地 mock，不接后端和大模型。
+依据《开发交接文档》实现：游客端 9 屏（uni-app）+ 景区后台 3 页（Vue 3），数据全部来自本地 mock，不接后端和大模型。
+
+在线演示（GitHub Pages）：<https://luxuruce.github.io/ai-smart-tourism-demo/>。推送到 `main` 后由 `.github/workflows/pages.yml` 自动打包发布。
 
 ## 运行
 

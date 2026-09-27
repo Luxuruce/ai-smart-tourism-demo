@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>青石古镇 · 景区口碑与体验 MVP 原型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  /* 颜色取自 packages/shared/tokens.ts 的亮色 token */
+  :root { --bg: #F3F5F0; --surface: #FFFFFC; --border: #DDE5DF; --text: #1B2A33; --text-2: #56636A; --primary: #1F5E7A; --action: #26704F; --on-color: #FFFFFF; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; font-family: 'Noto Sans SC', -apple-system, 'PingFang SC', sans-serif; background: var(--bg); color: var(--text); display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+  main { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 20px; }
+  h1 { margin: 0; font-family: 'Noto Serif SC', serif; font-size: 30px; letter-spacing: 2px; }
+  p { margin: 0; color: var(--text-2); font-size: 14px; line-height: 1.7; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  a.card { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); color: var(--text); text-decoration: none; }
+  a.card:hover { border-color: var(--primary); }
+  .card b { font-size: 17px; }
+  .card span { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+  .card em { font-style: normal; font-size: 13px; font-weight: 700; color: var(--primary); }
+  .note { font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>青石古镇</h1>
+  <p>景区口碑与体验 MVP · 可交互前端原型。示例景区为虚构，所有数字均为示例数据，方括号内容为待景区填写的占位。</p>
+  <div class="cards">
+    <a class="card" href="./visitor/">
+      <b>游客端</b>
+      <span>首页、游览地图、机位详情、排队、AI 导游、一键反馈、我的、AI 行程、安全求助；支持亮 / 暗主题</span>
+      <em>打开游客端 ›</em>
+    </a>
+    <a class="card" href="./admin/">
+      <b>景区后台</b>
+      <span>运营驾驶舱、评级合规自检、工单中心；建议在 1440 宽以上的桌面浏览器打开</span>
+      <em>打开后台 ›</em>
+    </a>
+  </div>
+  <p class="note">原型阶段不接后端和大模型，AI 回答、识别和预警均为预设结果。刷新页面会重置演示状态（主题设置除外）。</p>
+</main>
+</body>
+</html>

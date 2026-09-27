@@ -7,18 +7,32 @@
   "transformPx": false,
   "h5": {
     "title": "青石古镇 · 游客端",
-    "router": { "mode": "hash" },
-    "devServer": { "port": 5173 }
+    "router": {
+      "mode": "hash",
+      "base": "./"
+    },
+    "devServer": {
+      "port": 5173
+    },
+    "publicPath": "./"
   },
   "mp-weixin": {
     "appid": "",
-    "setting": { "urlCheck": false, "es6": true, "minified": true },
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "minified": true
+    },
     "usingComponents": true,
     "lazyCodeLoading": "requiredComponents"
   },
   "mp-toutiao": {
     "appid": "",
-    "setting": { "urlCheck": false, "es6": true, "minified": true },
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "minified": true
+    },
     "usingComponents": true
   },
   "vueVersion": "3"
