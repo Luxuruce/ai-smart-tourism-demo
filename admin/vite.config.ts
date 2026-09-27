@@ -7,6 +7,8 @@ export default defineConfig({
   base: './',
   plugins: [vue()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  // 工作区包是源码，不能被预构建缓存，否则改了 mock 页面看不到
+  optimizeDeps: { exclude: ['@qs/shared'] },
   server: {
     host: '0.0.0.0',
     port: 5174,

@@ -30,3 +30,15 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--primary-fg); ou
   height: 44px; padding: 0 18px; border-radius: 22px; border: 1px dashed var(--border-strong);
   background: transparent; color: var(--text-disabled); font-size: 14px; cursor: not-allowed;
 }
+.btn-danger {
+  height: 44px; padding: 0 18px; border-radius: 22px; border: none;
+  background: var(--danger); color: var(--on-color); font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.btn-danger:disabled, .btn-action:disabled { opacity: 0.6; cursor: progress; }
+.field-label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-2); }
+.field-input {
+  width: 100%; min-width: 0;
+  font: inherit; font-size: 14px; color: var(--text); padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border-strong); background: var(--surface);
+}
+.field-input:focus { outline: 2px solid var(--primary-fg); outline-offset: 0; }

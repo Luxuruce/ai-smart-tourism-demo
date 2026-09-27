@@ -1,16 +1,20 @@
 <script setup lang="ts">
 // B1 运营驾驶舱（Dashboard.dc.html）
 import { computed, ref } from 'vue'
-import type { Alert } from '@qs/shared'
+import { useRouter } from 'vue-router'
+import type { Alert, DispatchDraft } from '@qs/shared'
 import StateBlock from '@/components/StateBlock.vue'
-import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import AppDialog from '@/components/AppDialog.vue'
 import TrendChart from '@/components/TrendChart.vue'
 import { useAsync } from '@/components/useAsync'
 import { toast } from '@/components/toast'
 import {
-  getAlerts, getBadRateTrend, getComplaintShares, getDataSources, getKpis, getTopQuestions, pushAdvice,
+  dispatchTicket, getAlerts, getBadRateTrend, getComplaintShares, getCrowdReviews, getDataSources, getKpis,
+  getTopQuestions, pushAdvice, pushCopy,
 } from '@/services/dashboard'
+import { getTickets, owners } from '@/services/tickets'
 import { useAlertStore } from '@/stores/alerts'
+import { useTicketStore } from '@/stores/tickets'
 
 const sources = useAsync(getDataSources)
 const kpis = useAsync(getKpis)
@@ -20,7 +24,10 @@ const alerts = useAsync(getAlerts)
 const shares = useAsync(getComplaintShares)
 const alertStore = useAlertStore()
 
-const pending = computed(() => (alerts.data.value ?? []).filter((a) => !alertStore.pushed.includes(a.id)).length)
+const ticketStore = useTicketStore()
+const router = useRouter()
+
+const pending = computed(() => (alerts.data.value ?? []).filter((a) => !alertStore.handled(a.id)).length)
 const gapCount = computed(() => (questions.data.value ?? []).filter((q) => q.flag?.kind === 'gap').length)
 const maxShare = computed(() => Math.max(1, ...(shares.data.value ?? []).map((s) => s.percent)))
 
@@ -39,6 +46,38 @@ async function doPush() {
     toast(e instanceof Error ? e.message : '推送失败，请重试')
   } finally {
     pushing.value = false
+  }
+}
+
+// 「依据 8 条差评」：打开差评列表弹窗（13.4 5.1）
+const reviewsOpen = ref(false)
+const reviews = useAsync(getCrowdReviews, (v) => v.items.length === 0)
+
+// 派单：弹窗预填，人工确认后生成工单并跳到工单中心高亮（13.2 2.3）
+const dispatching = ref<Alert | null>(null)
+const draft = ref<DispatchDraft | null>(null)
+const sending = ref(false)
+function openDispatch(a: Alert) {
+  if (!a.dispatch) return
+  dispatching.value = a
+  draft.value = { ...a.dispatch }
+}
+async function doDispatch() {
+  const a = dispatching.value
+  const d = draft.value
+  if (!a || !d || !d.desc.trim()) return
+  sending.value = true
+  try {
+    await dispatchTicket(d)
+    if (!ticketStore.loaded) ticketStore.init(await getTickets())
+    ticketStore.addDispatched(d)
+    alertStore.markDispatched(a.id, d.ticketId)
+    dispatching.value = null
+    router.push({ path: '/tickets', query: { highlight: d.ticketId } })
+  } catch (e) {
+    toast(e instanceof Error ? e.message : '派单失败，请重试')
+  } finally {
+    sending.value = false
   }
 }
 </script>
@@ -108,12 +147,19 @@ async function doPush() {
                 <div class="alert__cat">{{ a.category }} · {{ a.level === 'high' ? '高' : '中' }}</div>
                 <div class="alert__title">{{ a.title }}</div>
                 <div class="alert__desc">
-                  {{ a.desc }}<RouterLink to="/tickets">{{ a.basis }}</RouterLink>
+                  {{ a.desc
+                  }}<button v-if="a.action === 'push'" type="button" class="link-btn" @click="reviewsOpen = true">{{ a.basis }}</button
+                  ><template v-else-if="alertStore.dispatched[a.id]"><RouterLink :to="{ path: '/tickets', query: { highlight: alertStore.dispatched[a.id] } }">查看工单</RouterLink></template
+                  ><button v-else type="button" class="link-btn" @click="openDispatch(a)">{{ a.basis }}</button>
                 </div>
                 <template v-if="a.action === 'push'">
-                  <span v-if="alertStore.pushed.includes(a.id)" class="alert__done" role="status">{{ a.pushedText }}</span>
+                  <template v-if="alertStore.pushed.includes(a.id)">
+                    <span class="alert__done" role="status">{{ a.pushedText }}</span>
+                    <button type="button" class="alert__push" disabled>{{ a.cooldownMin }} 分钟后可再次推送</button>
+                  </template>
                   <button v-else type="button" class="alert__push" @click="confirming = a">一键推送错峰建议</button>
                 </template>
+                <span v-else-if="alertStore.dispatched[a.id]" class="alert__done" role="status">处理中 · 工单 {{ alertStore.dispatched[a.id] }}</span>
               </div>
             </div>
           </StateBlock>
@@ -132,18 +178,56 @@ async function doPush() {
       </div>
     </div>
 
-    <ConfirmDialog
-      :open="!!confirming"
-      title="确认推送错峰建议？"
-      :confirm-text="`确认推送给 ${confirming?.reach ?? 0} 人`"
-      :busy="pushing"
-      @confirm="doPush"
-      @cancel="confirming = null"
-    >
-      <p class="confirm__p">将向正前往「文昌阁飞檐」的游客推送替代机位和「15:30 再来」建议。</p>
-      <p class="confirm__reach">预计触达 <b>{{ confirming?.reach }}</b> 人</p>
-      <p class="confirm__note">推送以小程序服务通知发送，游客可自行选择是否改道；推送后不可撤回。</p>
-    </ConfirmDialog>
+    <AppDialog :open="!!confirming" :title="pushCopy.title" @close="confirming = null">
+      <p class="confirm__p">{{ pushCopy.body }}</p>
+      <p class="confirm__reach">预计触达 <b>{{ confirming?.reach }}</b> {{ pushCopy.reachSuffix }}</p>
+      <p class="confirm__note">{{ pushCopy.note }}</p>
+      <template #footer>
+        <button type="button" class="btn-outline" @click="confirming = null">取消</button>
+        <button type="button" class="btn-danger" data-autofocus :disabled="pushing" @click="doPush">
+          {{ pushing ? '正在推送…' : `确认推送给 ${confirming?.reach ?? 0} 人` }}
+        </button>
+      </template>
+    </AppDialog>
+
+    <AppDialog :open="reviewsOpen" :title="reviews.data.value?.title ?? '相关差评'" :width="640" @close="reviewsOpen = false">
+      <StateBlock :status="reviews.status.value" :rows="8" :row-height="28" :error="reviews.error.value" empty-text="近 30 天没有相关差评" @retry="reviews.reload">
+        <table class="reviews">
+          <thead><tr><th>渠道</th><th>评分</th><th>日期</th><th>内容</th></tr></thead>
+          <tbody>
+            <tr v-for="(r, i) in reviews.data.value?.items ?? []" :key="i">
+              <td>{{ r.channel }}</td><td>{{ r.score }} 分</td><td>{{ r.date }}</td><td>{{ r.text }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="confirm__note reviews__footer">{{ reviews.data.value?.footer }}</p>
+      </StateBlock>
+      <template #footer>
+        <button type="button" class="btn-outline" data-autofocus @click="reviewsOpen = false">关闭</button>
+      </template>
+    </AppDialog>
+
+    <AppDialog :open="!!dispatching" title="派单" :width="520" @close="dispatching = null">
+      <form v-if="draft" class="dispatch" @submit.prevent="doDispatch">
+        <div class="dispatch__row">
+          <label class="field-label">类型<input v-model="draft.aiType" class="field-input" readonly /></label>
+          <label class="field-label">区域<input v-model="draft.area" class="field-input" readonly /></label>
+        </div>
+        <label class="field-label">责任人
+          <select v-model="draft.owner" class="field-input" data-autofocus>
+            <option v-for="o in owners" :key="o" :value="o">{{ o }}</option>
+          </select>
+        </label>
+        <label class="field-label">说明<textarea v-model="draft.desc" class="field-input" rows="3" /></label>
+        <p class="confirm__note">确认后生成工单 {{ draft.ticketId }}，并通知责任人。</p>
+      </form>
+      <template #footer>
+        <button type="button" class="btn-outline" @click="dispatching = null">取消</button>
+        <button type="button" class="btn-action" :disabled="sending || !draft?.desc.trim()" @click="doDispatch">
+          {{ sending ? '正在派单…' : '确认派单' }}
+        </button>
+      </template>
+    </AppDialog>
   </div>
 </template>
 
@@ -197,6 +281,16 @@ async function doPush() {
   background: var(--danger); color: var(--on-color); font-size: 13px; font-weight: 700; cursor: pointer;
 }
 .alert__done { font-size: 13px; color: var(--ok-fg); font-weight: 700; }
+.alert__push:disabled { background: var(--surface-muted); color: var(--text-disabled); cursor: not-allowed; }
+.link-btn { border: none; background: none; padding: 0; font: inherit; color: var(--primary-fg); cursor: pointer; }
+.link-btn:hover { color: var(--link-hover); }
+.reviews { width: 100%; border-collapse: collapse; font-size: 13px; }
+.reviews th { text-align: left; font-weight: 700; background: var(--surface-muted); padding: 8px 10px; white-space: nowrap; }
+.reviews td { padding: 8px 10px; border-top: 1px solid var(--surface-muted); vertical-align: top; }
+.reviews td:nth-child(-n+3) { white-space: nowrap; color: var(--text-2); }
+.reviews__footer { margin-top: 10px; }
+.dispatch { display: flex; flex-direction: column; gap: 12px; }
+.dispatch__row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .bar { display: flex; align-items: center; gap: 10px; }
 .bar__label { width: 96px; font-size: 13px; }
 .bar__track { flex-grow: 1; height: 10px; }
