@@ -118,6 +118,8 @@ export const adminTokens = {
   'sidebar-muted': '#B9C6CC',
   /** 合规「部分达标」图标 */
   'warn-icon': '#8C6410',
+  /** 弹窗遮罩 */
+  'scrim': 'rgba(27,42,51,0.4)',
 } as const
 
 /** 把一组 token 拼成 CSS 变量声明：`--bg:#F3F5F0;--surface:…;` */

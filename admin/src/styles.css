@@ -1,0 +1,28 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: 'Noto Sans SC', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--primary-fg); text-decoration: none; }
+a:hover { color: var(--link-hover); }
+button { font-family: inherit; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--primary-fg); outline-offset: 2px; }
+.serif { font-family: 'Noto Serif SC', 'Songti SC', serif; font-weight: 700; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.page-title { font-family: 'Noto Serif SC', 'Songti SC', serif; font-size: 26px; font-weight: 700; }
+.page-sub { font-size: 13px; color: var(--text-2); }
+.btn-outline {
+  height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid var(--primary-fg);
+  background: var(--surface); color: var(--primary-fg); font-size: 14px; cursor: pointer;
+}
+.btn-action {
+  height: 44px; padding: 0 18px; border-radius: 22px; border: none;
+  background: var(--action); color: var(--on-color); font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.btn-placeholder {
+  height: 44px; padding: 0 18px; border-radius: 22px; border: 1px dashed var(--border-strong);
+  background: transparent; color: var(--text-disabled); font-size: 14px; cursor: not-allowed;
+}
