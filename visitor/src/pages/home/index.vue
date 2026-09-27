@@ -14,6 +14,9 @@ import { go } from '@/utils/nav'
 import { useAsync } from '@/utils/useAsync'
 import { usePage } from '@/utils/usePage'
 
+
+// 页面参数不作为属性透传到根节点
+defineOptions({ inheritAttrs: false })
 const { theme, pageStyle, sync } = usePage(true)
 const persona = usePersonaStore()
 const trip = useTripStore()
@@ -100,7 +103,7 @@ function openTrip() {
     <view class="content">
       <view class="persona">
         <text class="persona__ask">你这次来，主要是为了……</text>
-        <StateView :status="personas.status.value" :rows="1" :row-height="36" :error="personas.error.value" @retry="personas.reload">
+        <StateView :status="personas.status.value" :rows="1" :row-height="36" empty-text="游览身份暂未配置" :error="personas.error.value" @retry="personas.reload">
           <view class="persona__chips" role="radiogroup" aria-label="游览身份">
             <view
               v-for="p in personas.data.value ?? []"

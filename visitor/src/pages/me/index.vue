@@ -16,6 +16,9 @@ import type { AsyncStatus } from '@/utils/useAsync'
 import { go } from '@/utils/nav'
 import { usePage } from '@/utils/usePage'
 
+
+// 页面参数不作为属性透传到根节点
+defineOptions({ inheritAttrs: false })
 const { theme, pageStyle, sync } = usePage()
 const collection = useCollectionStore()
 const feedback = useFeedbackStore()

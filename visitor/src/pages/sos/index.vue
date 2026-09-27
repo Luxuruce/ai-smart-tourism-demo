@@ -11,6 +11,9 @@ import { back, call, go } from '@/utils/nav'
 import { useAsync } from '@/utils/useAsync'
 import { usePage } from '@/utils/usePage'
 
+
+// 页面参数不作为属性透传到根节点
+defineOptions({ inheritAttrs: false })
 const { pageStyle } = usePage()
 const prefs = usePrefsStore()
 const info = useAsync(getSosInfo, { isEmpty: () => false })

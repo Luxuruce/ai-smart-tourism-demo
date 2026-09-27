@@ -8,7 +8,11 @@ const SERIF_FONT_URL = 'https://cdn.jsdelivr.net/fontsource/fonts/noto-serif-sc@
 
 onLaunch((options) => {
   // 演示用：?mock=empty / ?mock=error 让所有 services 返回空数据或异常
-  const mode = (options?.query as Record<string, string> | undefined)?.mock
+  let mode = (options?.query as Record<string, string> | undefined)?.mock
+  // #ifdef H5
+  // H5 也支持把参数写在 # 前面：/?mock=empty#/pages/home/index
+  mode = mode ?? new URLSearchParams(location.search).get('mock') ?? undefined
+  // #endif
   if (mode === 'empty' || mode === 'error') setMockMode(mode as MockMode)
 
   useThemeStore().applyTabBar()
